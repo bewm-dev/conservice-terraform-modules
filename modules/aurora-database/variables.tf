@@ -40,6 +40,18 @@ variable "additional_readonly_roles" {
   default     = []
 }
 
+variable "admin_users" {
+  description = "Individual IAM-authenticated admin users (Google identity usernames, e.g., [\"aarondavis\", \"jane.smith\"]). Each gets a personal login role with full database access."
+  type        = list(string)
+  default     = []
+}
+
+variable "readonly_users" {
+  description = "Individual IAM-authenticated read-only users (Google identity usernames). Each gets a personal login role with SELECT-only access."
+  type        = list(string)
+  default     = []
+}
+
 variable "extensions" {
   description = "PostgreSQL extensions to enable in the database (e.g., [\"pgcrypto\", \"uuid-ossp\", \"pg_stat_statements\"])"
   type        = list(string)

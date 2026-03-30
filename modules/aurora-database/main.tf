@@ -177,6 +177,75 @@ resource "postgresql_default_privileges" "additional_readers_tables" {
 }
 
 # -----------------------------------------------------------------------------
+# Individual Admin Users (Google identity → IAM auth)
+#
+# Each person gets their own login role with full database access.
+# They authenticate via: Google → Identity Center → IAM → rds-db:connect
+# PostgreSQL logs show their individual username for audit.
+# -----------------------------------------------------------------------------
+
+resource "postgresql_role" "admin_users" {
+  for_each = toset(var.admin_users)
+
+  name    = each.key
+  login   = true
+  inherit = true
+  roles   = [postgresql_role.service.name, "rds_iam"]
+
+  skip_reassign_owned = true
+}
+
+# -----------------------------------------------------------------------------
+# Individual Read-Only Users (Google identity → IAM auth)
+#
+# Same pattern as admins but with SELECT-only access.
+# Used for developers who need to query but not modify data.
+# -----------------------------------------------------------------------------
+
+resource "postgresql_role" "readonly_users" {
+  for_each = toset(var.readonly_users)
+
+  name    = each.key
+  login   = true
+  inherit = true
+  roles   = ["rds_iam"]
+
+  skip_reassign_owned = true
+}
+
+resource "postgresql_grant" "readonly_users_schema" {
+  for_each = toset(var.readonly_users)
+
+  role        = postgresql_role.readonly_users[each.key].name
+  database    = postgresql_database.this.name
+  schema      = "public"
+  object_type = "schema"
+  privileges  = ["USAGE"]
+}
+
+resource "postgresql_grant" "readonly_users_tables" {
+  for_each = toset(var.readonly_users)
+
+  role        = postgresql_role.readonly_users[each.key].name
+  database    = postgresql_database.this.name
+  schema      = "public"
+  object_type = "table"
+  privileges  = ["SELECT"]
+}
+
+resource "postgresql_default_privileges" "readonly_users_tables" {
+  for_each = toset(var.readonly_users)
+
+  role     = postgresql_role.readonly_users[each.key].name
+  database = postgresql_database.this.name
+  schema   = "public"
+  owner    = postgresql_role.service.name
+
+  object_type = "table"
+  privileges  = ["SELECT"]
+}
+
+# -----------------------------------------------------------------------------
 # Extensions
 # -----------------------------------------------------------------------------
 
