@@ -10,9 +10,10 @@ All resources use the prefix `conservice-{env}-{resource}`. No exceptions.
 
 | Module | Purpose | Status |
 |--------|---------|--------|
-| `aws-vpc` | VPC with public/private/database subnets, NAT, flow logs | In progress |
+| `aws-vpc` | VPC with public/private/database subnets, NAT, flow logs | Done |
 | `aws-eks` | EKS cluster with Karpenter support, Pod Identity | Planned |
-| `aws-aurora` | Aurora PostgreSQL Serverless v2 | Planned |
+| `aws-aurora` | Aurora PostgreSQL Serverless v2 (platform-level) | Planned |
+| `aurora-database` | App-level database, roles, grants with IAM auth (guardrail) | Done |
 | `tgw-spoke-attachment` | TGW attachment + routes for spoke VPCs | Planned |
 | `sqs-queue` | App-level SQS with DLQ, encryption, tags (guardrail) | Planned |
 | `sns-topic` | App-level SNS with encryption, tags (guardrail) | Planned |
