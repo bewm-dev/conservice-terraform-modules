@@ -24,13 +24,26 @@ variable "cluster_role_arn" {
   type        = string
 }
 
-variable "kms_key_arn" {
-  description = "KMS key ARN for EKS secrets encryption"
+variable "node_role_arn" {
+  description = "IAM role ARN for EKS managed node groups. If null, no EC2_LINUX access entry is created."
   type        = string
+  default     = null
+}
+
+variable "kms_key_arn" {
+  description = "KMS key ARN for EKS secrets encryption. If null, secrets encryption is disabled."
+  type        = string
+  default     = null
 }
 
 variable "cluster_admin_arns" {
   description = "IAM ARNs granted cluster admin access via EKS access entries"
+  type        = list(string)
+  default     = []
+}
+
+variable "additional_security_group_ids" {
+  description = "Additional security group IDs to attach to the EKS cluster"
   type        = list(string)
   default     = []
 }

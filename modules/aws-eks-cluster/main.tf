@@ -1,5 +1,8 @@
 # -----------------------------------------------------------------------------
-# EKS Cluster (Management)
+# EKS Cluster
+#
+# Unified module for both management and workload clusters.
+# Access entries, encryption, and security groups are all configurable.
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_cluster" "this" {
@@ -11,15 +14,19 @@ resource "aws_eks_cluster" "this" {
     subnet_ids              = var.subnet_ids
     endpoint_private_access = true
     endpoint_public_access  = true
+    security_group_ids      = var.additional_security_group_ids
   }
 
   enabled_cluster_log_types = var.cluster_enabled_log_types
 
-  encryption_config {
-    provider {
-      key_arn = var.kms_key_arn
+  dynamic "encryption_config" {
+    for_each = var.kms_key_arn != null ? [var.kms_key_arn] : []
+    content {
+      provider {
+        key_arn = encryption_config.value
+      }
+      resources = ["secrets"]
     }
-    resources = ["secrets"]
   }
 
   access_config {
@@ -59,6 +66,18 @@ resource "aws_eks_access_policy_association" "admin" {
 }
 
 # -----------------------------------------------------------------------------
+# Access Entry — Node Role (EC2_LINUX)
+# -----------------------------------------------------------------------------
+
+resource "aws_eks_access_entry" "node" {
+  count = var.node_role_arn != null ? 1 : 0
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = var.node_role_arn
+  type          = "EC2_LINUX"
+}
+
+# -----------------------------------------------------------------------------
 # EKS Addons
 # -----------------------------------------------------------------------------
 
@@ -76,6 +95,8 @@ resource "aws_eks_addon" "coredns" {
 
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [aws_eks_access_entry.node]
 }
 
 resource "aws_eks_addon" "kube_proxy" {
