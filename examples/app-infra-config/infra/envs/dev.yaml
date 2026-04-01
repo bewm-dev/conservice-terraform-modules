@@ -1,0 +1,10 @@
+# Dev environment overrides.
+# Only include what's DIFFERENT from the defaults.
+
+databases:
+  billing_events:
+    admin_users:
+      - shawnpetersen
+      - aarondavis
+    readonly_users:
+      - jaren.damm

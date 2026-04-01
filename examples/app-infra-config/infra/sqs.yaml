@@ -1,0 +1,10 @@
+# SQS queue defaults — applied to all environments unless overridden.
+
+queues:
+  order-events:
+    dlq: true
+    max_receive_count: 5
+    visibility_timeout: 60
+  payment-notifications:
+    dlq: true
+    max_receive_count: 3

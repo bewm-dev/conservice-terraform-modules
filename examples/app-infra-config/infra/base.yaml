@@ -1,0 +1,7 @@
+# Base config — shared across all environments.
+# This is the only REQUIRED file. Resource files are optional.
+
+name: my-billing-service
+team: billing
+domain: billing
+portfolio: billing

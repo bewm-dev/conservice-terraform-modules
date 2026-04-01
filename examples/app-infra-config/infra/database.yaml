@@ -1,0 +1,11 @@
+# Database defaults — applied to all environments unless overridden.
+
+databases:
+  billing_events:
+    service_role: billing-events-svc
+    team_role: billing-team-read
+    extensions:
+      - pgcrypto
+      - uuid-ossp
+    admin_users:
+      - shawnpetersen

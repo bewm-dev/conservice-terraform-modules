@@ -1,0 +1,9 @@
+# Prod environment overrides.
+# Only include what's DIFFERENT from the defaults.
+# Prod typically has fewer admin users and no readonly users.
+
+databases:
+  billing_events:
+    admin_users:
+      - shawnpetersen
+    connection_limit: 100
