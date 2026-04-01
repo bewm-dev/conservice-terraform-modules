@@ -22,6 +22,11 @@ output "eks_node_instance_profile_name" {
   value       = aws_iam_instance_profile.eks_node.name
 }
 
+output "eks_node_instance_profile_arn" {
+  description = "ARN of the EKS node instance profile"
+  value       = aws_iam_instance_profile.eks_node.arn
+}
+
 output "ecr_cross_account_pull_role_arn" {
   description = "ARN of the ECR cross-account pull role (empty string if disabled)"
   value       = var.enable_ecr_pull_role ? aws_iam_role.ecr_pull[0].arn : ""

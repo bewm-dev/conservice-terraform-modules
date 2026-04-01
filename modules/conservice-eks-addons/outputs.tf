@@ -38,3 +38,8 @@ output "karpenter_queue_name" {
   description = "Name of the Karpenter interruption SQS queue"
   value       = var.enable_karpenter ? aws_sqs_queue.karpenter_interruption[0].name : ""
 }
+
+output "karpenter_queue_arn" {
+  description = "ARN of the Karpenter interruption SQS queue"
+  value       = var.enable_karpenter ? aws_sqs_queue.karpenter_interruption[0].arn : ""
+}
