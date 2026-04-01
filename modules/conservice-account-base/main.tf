@@ -47,6 +47,7 @@ data "aws_iam_policy_document" "tf_execution_trust" {
 
 resource "aws_iam_role" "tf_execution" {
   name               = "${local.name_prefix}-tf-execution"
+  path               = "/infrastructure/"
   assume_role_policy = data.aws_iam_policy_document.tf_execution_trust.json
 }
 
@@ -107,6 +108,7 @@ data "aws_iam_policy_document" "tf_execution" {
 
 resource "aws_iam_policy" "tf_execution" {
   name   = "${local.name_prefix}-tf-execution"
+  path   = "/infrastructure/"
   policy = data.aws_iam_policy_document.tf_execution.json
 }
 
@@ -132,6 +134,7 @@ data "aws_iam_policy_document" "eks_cluster_trust" {
 
 resource "aws_iam_role" "eks_cluster" {
   name               = "${local.name_prefix}-eks-cluster"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.eks_cluster_trust.json
 }
 
@@ -162,6 +165,7 @@ data "aws_iam_policy_document" "eks_node_trust" {
 
 resource "aws_iam_role" "eks_node" {
   name               = "${local.name_prefix}-eks-node"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.eks_node_trust.json
 }
 
@@ -187,6 +191,7 @@ resource "aws_iam_role_policy_attachment" "eks_ssm" {
 
 resource "aws_iam_instance_profile" "eks_node" {
   name = "${local.name_prefix}-eks-node"
+  path = "/eks/"
   role = aws_iam_role.eks_node.name
 }
 
@@ -211,6 +216,7 @@ resource "aws_iam_role" "ecr_pull" {
   count = var.enable_ecr_pull_role ? 1 : 0
 
   name               = "${local.name_prefix}-ecr-cross-account-pull"
+  path               = "/ecr/"
   assume_role_policy = data.aws_iam_policy_document.ecr_pull_trust[0].json
 }
 
@@ -240,6 +246,7 @@ resource "aws_iam_policy" "ecr_pull" {
   count = var.enable_ecr_pull_role ? 1 : 0
 
   name   = "${local.name_prefix}-ecr-cross-account-pull"
+  path   = "/ecr/"
   policy = data.aws_iam_policy_document.ecr_pull[0].json
 }
 
@@ -271,6 +278,7 @@ resource "aws_iam_role" "aurora" {
   count = var.enable_aurora_role ? 1 : 0
 
   name               = "${local.name_prefix}-aurora-access"
+  path               = "/database/"
   assume_role_policy = data.aws_iam_policy_document.aurora_trust[0].json
 }
 
@@ -303,6 +311,7 @@ resource "aws_iam_policy" "aurora" {
   count = var.enable_aurora_role ? 1 : 0
 
   name   = "${local.name_prefix}-aurora-access"
+  path   = "/database/"
   policy = data.aws_iam_policy_document.aurora[0].json
 }
 
