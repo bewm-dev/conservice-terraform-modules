@@ -61,9 +61,9 @@ variable "public_subnets" {
 }
 
 variable "private_app_subnet_bits" {
-  description = "Subnet mask bits for auto-calculated private app subnets (e.g., 20 for /20)"
+  description = "Subnet mask bits for auto-calculated private app subnets (e.g., 19 for /19)"
   type        = number
-  default     = 20
+  default     = 19
 }
 
 variable "private_db_subnet_bits" {

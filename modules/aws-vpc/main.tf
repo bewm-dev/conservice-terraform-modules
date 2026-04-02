@@ -10,26 +10,28 @@
 
 locals {
   name_prefix = "conservice-${var.env}"
+  az_count    = length(var.azs)
+  vpc_bits    = tonumber(split("/", var.vpc_cidr)[1])
 
-  # Calculate subnet CIDRs from the VPC CIDR
-  # Split the VPC CIDR into /20 blocks for private-app, /22 for private-db, /24 for public
-  vpc_cidr_bits  = tonumber(split("/", var.vpc_cidr)[1])
-  private_app_newbits = var.private_app_subnet_bits - local.vpc_cidr_bits
-  private_db_newbits  = var.private_db_subnet_bits - local.vpc_cidr_bits
-  public_newbits      = var.public_subnet_bits - local.vpc_cidr_bits
+  # Subnet sizes (newbits added to VPC prefix)
+  # For a /16 VPC: private-app=/19 (3 newbits), private-db=/22 (6), public=/24 (8)
+  private_app_newbits = var.private_app_subnet_bits - local.vpc_bits
+  private_db_newbits  = var.private_db_subnet_bits - local.vpc_bits
+  public_newbits      = var.public_subnet_bits - local.vpc_bits
 
-  # Generate subnet CIDRs if not explicitly provided
-  private_app_subnets = length(var.private_app_subnets) > 0 ? var.private_app_subnets : [
-    for i, az in var.azs : cidrsubnet(var.vpc_cidr, local.private_app_newbits, i)
-  ]
+  # Use cidrsubnets (plural) for guaranteed non-overlapping, contiguous allocation.
+  # Order: [app-az0, app-az1, app-az2, db-az0, db-az1, db-az2, pub-az0, pub-az1, pub-az2]
+  subnet_newbits = flatten([
+    [for _ in var.azs : local.private_app_newbits],
+    [for _ in var.azs : local.private_db_newbits],
+    [for _ in var.azs : local.public_newbits],
+  ])
+  auto_subnets = cidrsubnets(var.vpc_cidr, local.subnet_newbits...)
 
-  private_db_subnets = length(var.private_db_subnets) > 0 ? var.private_db_subnets : [
-    for i, az in var.azs : cidrsubnet(var.vpc_cidr, local.private_db_newbits, i + length(var.azs))
-  ]
-
-  public_subnets = length(var.public_subnets) > 0 ? var.public_subnets : [
-    for i, az in var.azs : cidrsubnet(var.vpc_cidr, local.public_newbits, i + (length(var.azs) * 4))
-  ]
+  # Slice into tiers (override with explicit CIDRs if provided)
+  private_app_subnets = length(var.private_app_subnets) > 0 ? var.private_app_subnets : slice(local.auto_subnets, 0, local.az_count)
+  private_db_subnets  = length(var.private_db_subnets) > 0 ? var.private_db_subnets : slice(local.auto_subnets, local.az_count, local.az_count * 2)
+  public_subnets      = length(var.public_subnets) > 0 ? var.public_subnets : slice(local.auto_subnets, local.az_count * 2, local.az_count * 3)
 }
 
 # -----------------------------------------------------------------------------
