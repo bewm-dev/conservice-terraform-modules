@@ -49,6 +49,18 @@ resource "aws_vpc" "this" {
 }
 
 # -----------------------------------------------------------------------------
+# Lock Down Default Security Group (CIS compliance)
+# -----------------------------------------------------------------------------
+
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(var.tags, {
+    Name = "${local.name_prefix}-default-sg-DO-NOT-USE"
+  })
+}
+
+# -----------------------------------------------------------------------------
 # Internet Gateway
 # -----------------------------------------------------------------------------
 
