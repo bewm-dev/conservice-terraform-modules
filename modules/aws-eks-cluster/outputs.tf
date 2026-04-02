@@ -23,6 +23,11 @@ output "cluster_arn" {
   value       = aws_eks_cluster.this.arn
 }
 
+output "cluster_version" {
+  description = "Kubernetes version of the EKS cluster"
+  value       = aws_eks_cluster.this.version
+}
+
 output "oidc_provider_arn" {
   description = "ARN of the OIDC provider"
   value       = aws_iam_openid_connect_provider.this.arn

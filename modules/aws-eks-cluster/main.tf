@@ -32,7 +32,14 @@ resource "aws_eks_cluster" "this" {
 
   access_config {
     authentication_mode                         = "API_AND_CONFIG_MAP"
-    bootstrap_cluster_creator_admin_permissions  = true
+    bootstrap_cluster_creator_admin_permissions  = var.bootstrap_cluster_creator_admin
+  }
+
+  dynamic "kubernetes_network_config" {
+    for_each = var.service_ipv4_cidr != null ? [var.service_ipv4_cidr] : []
+    content {
+      service_ipv4_cidr = kubernetes_network_config.value
+    }
   }
 
   tags = merge(var.tags, {

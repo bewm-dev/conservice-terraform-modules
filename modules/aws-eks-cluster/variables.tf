@@ -71,6 +71,18 @@ variable "cluster_enabled_log_types" {
   default     = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 }
 
+variable "bootstrap_cluster_creator_admin" {
+  description = "Grant cluster admin to the IAM principal that creates the cluster. Set false for production."
+  type        = bool
+  default     = false
+}
+
+variable "service_ipv4_cidr" {
+  description = "CIDR block for Kubernetes service IPs. Defaults to EKS default (10.100.0.0/16)."
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)
