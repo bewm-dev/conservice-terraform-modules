@@ -86,6 +86,45 @@ resource "aws_eks_access_entry" "node" {
 }
 
 # -----------------------------------------------------------------------------
+# System Node Group — bootstrap capacity for cluster-critical workloads
+# Tainted so only system pods (CoreDNS, Karpenter, ArgoCD, LBC, ESO) land here.
+# Application workloads go to Karpenter-provisioned nodes.
+# -----------------------------------------------------------------------------
+
+resource "aws_eks_node_group" "system" {
+  count = var.create_system_node_group && var.node_role_arn != null ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = "${var.cluster_name}-system"
+  node_role_arn   = var.node_role_arn
+  subnet_ids      = var.subnet_ids
+  instance_types  = var.system_node_group.instance_types
+  disk_size       = var.system_node_group.disk_size
+
+  scaling_config {
+    min_size     = var.system_node_group.min_size
+    max_size     = var.system_node_group.max_size
+    desired_size = var.system_node_group.desired_size
+  }
+
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
+  labels = {
+    "role" = "system"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-system"
+  })
+
+  depends_on = [aws_eks_access_entry.node]
+}
+
+# -----------------------------------------------------------------------------
 # EKS Addons
 # -----------------------------------------------------------------------------
 
@@ -104,7 +143,10 @@ resource "aws_eks_addon" "coredns" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
-  depends_on = [aws_eks_access_entry.node]
+  depends_on = [
+    aws_eks_access_entry.node,
+    aws_eks_node_group.system,
+  ]
 }
 
 resource "aws_eks_addon" "kube_proxy" {

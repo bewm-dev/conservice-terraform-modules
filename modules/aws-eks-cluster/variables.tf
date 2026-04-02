@@ -83,6 +83,24 @@ variable "service_ipv4_cidr" {
   default     = null
 }
 
+variable "create_system_node_group" {
+  description = "Create a small managed node group for system workloads (CoreDNS, Karpenter, ArgoCD). Solves the chicken-and-egg problem."
+  type        = bool
+  default     = true
+}
+
+variable "system_node_group" {
+  description = "Configuration for the system node group"
+  type = object({
+    instance_types = optional(list(string), ["t3.large"])
+    min_size       = optional(number, 2)
+    max_size       = optional(number, 3)
+    desired_size   = optional(number, 2)
+    disk_size      = optional(number, 50)
+  })
+  default = {}
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)
