@@ -75,6 +75,12 @@ variable "interface_vpc_endpoints" {
 # Security Group Toggles
 # -----------------------------------------------------------------------------
 
+variable "internal_prefix_list_id" {
+  description = "ID of the shared managed prefix list for internal CIDRs. If set, security groups use this instead of hardcoded CIDRs."
+  type        = string
+  default     = ""
+}
+
 variable "create_eks_sg" {
   description = "Create the EKS cluster additional security group"
   type        = bool

@@ -106,12 +106,12 @@ resource "aws_vpc_security_group_ingress_rule" "eks_https_from_vpc" {
   ip_protocol       = "tcp"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "eks_https_from_rfc1918" {
+resource "aws_vpc_security_group_ingress_rule" "eks_https_from_internal" {
   count = var.create_eks_sg ? 1 : 0
 
   security_group_id = aws_security_group.eks_cluster_additional[0].id
-  description       = "HTTPS from RFC1918 172.16.0.0/12 (cross-account via TGW)"
-  cidr_ipv4         = "172.16.0.0/12"
+  description       = "HTTPS from internal CIDRs (cross-account via TGW)"
+  prefix_list_id    = var.internal_prefix_list_id
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
@@ -183,10 +183,10 @@ resource "aws_vpc_security_group_ingress_rule" "internal_from_vpc" {
   ip_protocol       = "-1"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "internal_from_rfc1918" {
+resource "aws_vpc_security_group_ingress_rule" "internal_from_prefix_list" {
   security_group_id = aws_security_group.internal.id
-  description       = "All traffic from RFC1918 10.0.0.0/8 (cross-account via TGW)"
-  cidr_ipv4         = "10.0.0.0/8"
+  description       = "All traffic from internal CIDRs (cross-account via TGW)"
+  prefix_list_id    = var.internal_prefix_list_id
   ip_protocol       = "-1"
 }
 
