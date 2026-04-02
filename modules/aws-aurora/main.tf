@@ -61,6 +61,10 @@ resource "aws_kms_key" "aurora" {
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-kms"
   })
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "aurora" {
@@ -72,7 +76,7 @@ resource "aws_kms_alias" "aurora" {
 # DB Subnet Group
 # -----------------------------------------------------------------------------
 
-resource "aws_db_subnet_group" "aurora" {
+resource "aws_db_subnet_group" "this" {
   name       = "${var.cluster_name}-subnet-group"
   subnet_ids = var.subnet_ids
 
@@ -85,7 +89,7 @@ resource "aws_db_subnet_group" "aurora" {
 # Parameter Groups
 # -----------------------------------------------------------------------------
 
-resource "aws_rds_cluster_parameter_group" "aurora" {
+resource "aws_rds_cluster_parameter_group" "this" {
   name        = "${var.cluster_name}-cluster-params"
   family      = local.parameter_group_family
   description = "Cluster parameter group for ${var.cluster_name}"
@@ -122,7 +126,7 @@ resource "aws_rds_cluster_parameter_group" "aurora" {
   })
 }
 
-resource "aws_db_parameter_group" "aurora" {
+resource "aws_db_parameter_group" "this" {
   name        = "${var.cluster_name}-instance-params"
   family      = local.parameter_group_family
   description = "Instance parameter group for ${var.cluster_name}"
@@ -186,7 +190,7 @@ resource "aws_iam_role_policy_attachment" "enhanced_monitoring" {
 # Aurora Serverless v2 Cluster
 # -----------------------------------------------------------------------------
 
-resource "aws_rds_cluster" "aurora" {
+resource "aws_rds_cluster" "this" {
   cluster_identifier = var.cluster_name
   engine             = "aurora-postgresql"
   engine_mode        = "provisioned"
@@ -195,8 +199,8 @@ resource "aws_rds_cluster" "aurora" {
   master_username    = var.master_username
   master_password    = var.master_password
 
-  db_subnet_group_name            = aws_db_subnet_group.aurora.name
-  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.aurora.name
+  db_subnet_group_name            = aws_db_subnet_group.this.name
+  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.this.name
   vpc_security_group_ids          = var.vpc_security_group_ids
 
   storage_encrypted = true
@@ -222,22 +226,26 @@ resource "aws_rds_cluster" "aurora" {
   tags = merge(var.tags, {
     Name = var.cluster_name
   })
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -----------------------------------------------------------------------------
 # Cluster Instances
 # -----------------------------------------------------------------------------
 
-resource "aws_rds_cluster_instance" "aurora" {
+resource "aws_rds_cluster_instance" "this" {
   count = local.instance_count
 
   identifier         = "${var.cluster_name}-instance-${count.index + 1}"
-  cluster_identifier = aws_rds_cluster.aurora.id
+  cluster_identifier = aws_rds_cluster.this.id
   instance_class     = local.instance_class
-  engine             = aws_rds_cluster.aurora.engine
-  engine_version     = aws_rds_cluster.aurora.engine_version
+  engine             = aws_rds_cluster.this.engine
+  engine_version     = aws_rds_cluster.this.engine_version
 
-  db_parameter_group_name = aws_db_parameter_group.aurora.name
+  db_parameter_group_name = aws_db_parameter_group.this.name
 
   performance_insights_enabled = var.performance_insights_enabled
 

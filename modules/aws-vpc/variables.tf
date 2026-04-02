@@ -3,8 +3,13 @@
 # -----------------------------------------------------------------------------
 
 variable "env" {
-  description = "Environment name (e.g., dev, staging, prod, tools, network)"
+  description = "Environment name (e.g., dev, staging, prod, platform)"
   type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
+    error_message = "Environment must be one of: dev, staging, prod, platform."
+  }
 }
 
 variable "vpc_cidr" {

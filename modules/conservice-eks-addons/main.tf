@@ -22,6 +22,7 @@ resource "aws_iam_role" "lbc" {
   count = var.enable_lbc ? 1 : 0
 
   name               = "${var.cluster_name}-lbc"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
   tags               = { Name = "${var.cluster_name}-lbc" }
 }
@@ -30,6 +31,7 @@ resource "aws_iam_policy" "lbc" {
   count = var.enable_lbc ? 1 : 0
 
   name   = "${var.cluster_name}-lbc"
+  path   = "/eks/"
   policy = data.aws_iam_policy_document.lbc[0].json
   tags   = { Name = "${var.cluster_name}-lbc" }
 }
@@ -150,7 +152,7 @@ data "aws_iam_policy_document" "lbc" {
     condition {
       test     = "StringEquals"
       variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
-      values   = ["false"]
+      values   = [var.cluster_name]
     }
   }
 
@@ -218,6 +220,7 @@ resource "aws_iam_role" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
   name               = "${var.cluster_name}-external-dns"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
   tags               = { Name = "${var.cluster_name}-external-dns" }
 }
@@ -226,6 +229,7 @@ resource "aws_iam_policy" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
   name   = "${var.cluster_name}-external-dns"
+  path   = "/eks/"
   policy = data.aws_iam_policy_document.external_dns[0].json
   tags   = { Name = "${var.cluster_name}-external-dns" }
 }
@@ -276,6 +280,7 @@ resource "aws_iam_role" "eso" {
   count = var.enable_eso ? 1 : 0
 
   name               = "${var.cluster_name}-eso"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
   tags               = { Name = "${var.cluster_name}-eso" }
 }
@@ -284,6 +289,7 @@ resource "aws_iam_policy" "eso" {
   count = var.enable_eso ? 1 : 0
 
   name   = "${var.cluster_name}-eso"
+  path   = "/eks/"
   policy = data.aws_iam_policy_document.eso[0].json
   tags   = { Name = "${var.cluster_name}-eso" }
 }
@@ -340,6 +346,7 @@ resource "aws_iam_role" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
   name               = "${var.cluster_name}-karpenter"
+  path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
   tags               = { Name = "${var.cluster_name}-karpenter" }
 }
@@ -348,6 +355,7 @@ resource "aws_iam_policy" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
   name   = "${var.cluster_name}-karpenter"
+  path   = "/eks/"
   policy = data.aws_iam_policy_document.karpenter[0].json
   tags   = { Name = "${var.cluster_name}-karpenter" }
 }

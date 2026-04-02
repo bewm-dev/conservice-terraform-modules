@@ -6,7 +6,13 @@ resource "aws_kms_key" "eks" {
   description             = "KMS key for EKS secrets encryption - ${var.cluster_name}"
   deletion_window_in_days = var.kms_deletion_window
   enable_key_rotation     = true
-  tags                    = { Name = "${var.cluster_name}-eks-kms" }
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-eks-kms"
+  })
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "eks" {
@@ -23,7 +29,6 @@ module "eks" {
 
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
-  vpc_id          = var.vpc_id
   subnet_ids      = var.subnet_ids
 
   cluster_role_arn              = var.cluster_role_arn
@@ -32,6 +37,6 @@ module "eks" {
   additional_security_group_ids = var.additional_security_group_ids
   kms_key_arn                   = aws_kms_key.eks.arn
 
-  env     = var.env
-  project = var.project
+  env  = var.env
+  tags = var.tags
 }

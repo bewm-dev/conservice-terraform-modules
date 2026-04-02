@@ -277,6 +277,7 @@ resource "aws_iam_role" "flow_log" {
   count = var.enable_flow_logs ? 1 : 0
 
   name = "${local.name_prefix}-vpc-flow-log"
+  path = "/infrastructure/"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -361,17 +362,20 @@ resource "aws_security_group" "vpc_endpoints" {
   description = "Security group for VPC interface endpoints"
   vpc_id      = aws_vpc.this.id
 
-  ingress {
-    description = "HTTPS from VPC"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
   tags = merge(var.tags, {
     Name = "${local.name_prefix}-vpce-sg"
   })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "vpc_endpoints_https" {
+  count = var.enable_vpc_endpoints && length(var.interface_vpc_endpoints) > 0 ? 1 : 0
+
+  security_group_id = aws_security_group.vpc_endpoints[0].id
+  description       = "HTTPS from VPC"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
 }
 
 resource "aws_vpc_endpoint" "interface" {

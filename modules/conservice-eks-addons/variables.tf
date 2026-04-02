@@ -7,14 +7,14 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "cluster_arn" {
-  description = "ARN of the EKS cluster"
-  type        = string
-}
-
 variable "env" {
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name (e.g., dev, staging, prod, platform)"
   type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
+    error_message = "Environment must be one of: dev, staging, prod, platform."
+  }
 }
 
 variable "aws_account_id" {

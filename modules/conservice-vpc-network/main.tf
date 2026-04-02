@@ -21,6 +21,7 @@ module "vpc" {
   flow_log_retention      = var.flow_log_retention
   enable_vpc_endpoints    = var.enable_vpc_endpoints
   interface_vpc_endpoints = var.interface_vpc_endpoints
+  tags                    = var.tags
 }
 
 # -----------------------------------------------------------------------------
@@ -34,9 +35,9 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
   transit_gateway_id = var.transit_gateway_id
   vpc_id             = module.vpc.vpc_id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "conservice-${var.env}-tgw-attachment"
-  }
+  })
 }
 
 # -----------------------------------------------------------------------------
@@ -90,9 +91,9 @@ resource "aws_security_group" "eks_cluster_additional" {
   description = "Additional security group for EKS cluster API access"
   vpc_id      = module.vpc.vpc_id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "conservice-${var.env}-eks-cluster-additional"
-  }
+  })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "eks_https_from_vpc" {
@@ -137,9 +138,9 @@ resource "aws_security_group" "aurora" {
   description = "Security group for Aurora PostgreSQL clusters"
   vpc_id      = module.vpc.vpc_id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "conservice-${var.env}-aurora"
-  }
+  })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "aurora_postgres_from_vpc" {
@@ -171,9 +172,9 @@ resource "aws_security_group" "internal" {
   description = "Internal traffic within VPC and cross-account via TGW"
   vpc_id      = module.vpc.vpc_id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "conservice-${var.env}-internal"
-  }
+  })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "internal_from_vpc" {

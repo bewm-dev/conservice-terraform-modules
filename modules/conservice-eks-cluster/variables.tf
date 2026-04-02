@@ -8,18 +8,13 @@ variable "cluster_name" {
 }
 
 variable "env" {
-  description = "Environment name (e.g. dev, staging, prod)"
+  description = "Environment name (e.g., dev, staging, prod, platform)"
   type        = string
-}
 
-variable "project" {
-  description = "Project name for resource tagging"
-  type        = string
-}
-
-variable "vpc_id" {
-  description = "VPC ID where the EKS cluster will be created"
-  type        = string
+  validation {
+    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
+    error_message = "Environment must be one of: dev, staging, prod, platform."
+  }
 }
 
 variable "subnet_ids" {
@@ -64,4 +59,10 @@ variable "kms_deletion_window" {
   description = "Number of days before KMS key deletion (7-30)"
   type        = number
   default     = 30
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }

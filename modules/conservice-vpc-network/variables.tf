@@ -3,8 +3,13 @@
 # -----------------------------------------------------------------------------
 
 variable "env" {
-  description = "Environment name (e.g., dev, staging, prod)"
+  description = "Environment name (e.g., dev, staging, prod, platform)"
   type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
+    error_message = "Environment must be one of: dev, staging, prod, platform."
+  }
 }
 
 variable "project" {
@@ -91,4 +96,10 @@ variable "create_aurora_sg" {
   description = "Create the Aurora database security group"
   type        = bool
   default     = true
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }

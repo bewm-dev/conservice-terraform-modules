@@ -9,11 +9,6 @@ variable "cluster_version" {
   default     = "1.33"
 }
 
-variable "vpc_id" {
-  description = "VPC ID where the EKS cluster will be created"
-  type        = string
-}
-
 variable "subnet_ids" {
   description = "List of subnet IDs for the EKS cluster ENIs"
   type        = list(string)
@@ -49,13 +44,13 @@ variable "additional_security_group_ids" {
 }
 
 variable "env" {
-  description = "Environment name (e.g., dev, staging, prod, mgmt)"
+  description = "Environment name (e.g., dev, staging, prod, platform)"
   type        = string
-}
 
-variable "project" {
-  description = "Project name for resource tagging"
-  type        = string
+  validation {
+    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
+    error_message = "Environment must be one of: dev, staging, prod, platform."
+  }
 }
 
 variable "cluster_enabled_log_types" {
