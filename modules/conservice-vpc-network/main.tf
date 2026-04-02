@@ -2,7 +2,22 @@
 # conservice-vpc-network
 #
 # Complete spoke-account networking: VPC + security groups + TGW connectivity.
+# Naming: conservice-{env}-{region}-{resource}
 # =============================================================================
+
+locals {
+  region_codes = {
+    "us-east-1"      = "use1"
+    "us-east-2"      = "use2"
+    "us-west-1"      = "usw1"
+    "us-west-2"      = "usw2"
+    "eu-west-1"      = "euw1"
+    "eu-central-1"   = "euc1"
+    "ap-southeast-1" = "apse1"
+  }
+  region_code = local.region_codes[var.aws_region]
+  name_prefix = "conservice-${var.env}-${local.region_code}"
+}
 
 # -----------------------------------------------------------------------------
 # VPC
@@ -16,6 +31,7 @@ module "vpc" {
   aws_region              = var.aws_region
   vpc_cidr                = var.vpc_cidr
   azs                     = var.azs
+  cluster_name            = var.cluster_name
   single_nat_gateway      = var.single_nat_gateway
   enable_flow_logs        = var.enable_flow_logs
   flow_log_retention      = var.flow_log_retention
@@ -36,7 +52,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
   vpc_id             = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "conservice-${var.env}-tgw-attachment"
+    Name = "${local.name_prefix}-tgw-attachment"
   })
 }
 
@@ -87,12 +103,12 @@ resource "aws_route" "private_db_tgw_rfc1918_172" {
 resource "aws_security_group" "eks_cluster_additional" {
   count = var.create_eks_sg ? 1 : 0
 
-  name        = "conservice-${var.env}-eks-cluster-additional"
+  name        = "${local.name_prefix}-eks-cluster-additional"
   description = "Additional security group for EKS cluster API access"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "conservice-${var.env}-eks-cluster-additional"
+    Name = "${local.name_prefix}-eks-cluster-additional"
   })
 }
 
@@ -134,12 +150,12 @@ resource "aws_vpc_security_group_egress_rule" "eks_all_outbound" {
 resource "aws_security_group" "aurora" {
   count = var.create_aurora_sg ? 1 : 0
 
-  name        = "conservice-${var.env}-aurora"
+  name        = "${local.name_prefix}-aurora"
   description = "Security group for Aurora PostgreSQL clusters"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "conservice-${var.env}-aurora"
+    Name = "${local.name_prefix}-aurora"
   })
 }
 
@@ -168,12 +184,12 @@ resource "aws_vpc_security_group_egress_rule" "aurora_all_outbound" {
 # -----------------------------------------------------------------------------
 
 resource "aws_security_group" "internal" {
-  name        = "conservice-${var.env}-internal"
+  name        = "${local.name_prefix}-internal"
   description = "Internal traffic within VPC and cross-account via TGW"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "conservice-${var.env}-internal"
+    Name = "${local.name_prefix}-internal"
   })
 }
 

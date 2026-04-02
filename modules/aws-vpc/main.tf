@@ -5,11 +5,21 @@
 # across specified AZs. Includes IGW, NAT Gateway, route tables, flow logs,
 # and optional VPC endpoints.
 #
-# Naming: conservice-{env}-{resource}
+# Naming: conservice-{env}-{region}-{resource}
 # -----------------------------------------------------------------------------
 
 locals {
-  name_prefix = "conservice-${var.env}"
+  region_codes = {
+    "us-east-1"      = "use1"
+    "us-east-2"      = "use2"
+    "us-west-1"      = "usw1"
+    "us-west-2"      = "usw2"
+    "eu-west-1"      = "euw1"
+    "eu-central-1"   = "euc1"
+    "ap-southeast-1" = "apse1"
+  }
+  region_code = local.region_codes[var.aws_region]
+  name_prefix = "conservice-${var.env}-${local.region_code}"
   az_count    = length(var.azs)
   vpc_bits    = tonumber(split("/", var.vpc_cidr)[1])
 
@@ -88,10 +98,11 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name                                = "${local.name_prefix}-public-${each.key}"
-    "kubernetes.io/role/elb"            = "1"
-    "kubernetes.io/cluster/conservice-${var.env}-workload" = "shared"
-  })
+    Name                     = "${local.name_prefix}-public-${each.key}"
+    "kubernetes.io/role/elb" = "1"
+  }, var.cluster_name != null ? {
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+  } : {})
 }
 
 resource "aws_route_table" "public" {
@@ -157,11 +168,12 @@ resource "aws_subnet" "private_app" {
   availability_zone = each.value.az
 
   tags = merge(var.tags, {
-    Name                                = "${local.name_prefix}-private-app-${each.key}"
-    "kubernetes.io/role/internal-elb"   = "1"
-    "kubernetes.io/cluster/conservice-${var.env}-workload" = "shared"
-    "karpenter.sh/discovery"            = "conservice-${var.env}-workload"
-  })
+    Name                              = "${local.name_prefix}-private-app-${each.key}"
+    "kubernetes.io/role/internal-elb" = "1"
+  }, var.cluster_name != null ? {
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "karpenter.sh/discovery"                    = var.cluster_name
+  } : {})
 }
 
 resource "aws_route_table" "private_app" {

@@ -36,6 +36,12 @@ variable "azs" {
 # Transit Gateway
 # -----------------------------------------------------------------------------
 
+variable "cluster_name" {
+  description = "EKS cluster name for Kubernetes subnet tags. If null, K8s tags are omitted."
+  type        = string
+  default     = null
+}
+
 variable "transit_gateway_id" {
   description = "Transit Gateway ID for cross-account connectivity. Set to null to skip TGW attachment and routes."
   type        = string
