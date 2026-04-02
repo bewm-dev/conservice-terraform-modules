@@ -37,6 +37,18 @@ variable "cluster_admin_arns" {
   default     = []
 }
 
+variable "endpoint_public_access" {
+  description = "Whether the EKS API server is accessible from the internet"
+  type        = bool
+  default     = true
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access the public API endpoint. Only applies when endpoint_public_access is true."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
 variable "additional_security_group_ids" {
   description = "Additional security group IDs to attach to the EKS cluster"
   type        = list(string)
