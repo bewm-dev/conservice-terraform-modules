@@ -22,7 +22,7 @@ data "aws_iam_policy_document" "tf_execution_trust" {
 
     principals {
       type        = "AWS"
-      identifiers = [var.role_type == "cross-account" ? "arn:aws:iam::${var.tools_account_id}:root" : "arn:aws:iam::${var.aws_account_id}:root"]
+      identifiers = [var.role_type == "cross-account" ? "arn:aws:iam::${var.platform_account_id}:root" : "arn:aws:iam::${var.aws_account_id}:root"]
     }
 
     dynamic "condition" {

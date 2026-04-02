@@ -12,8 +12,8 @@ variable "aws_account_id" {
   type        = string
 }
 
-variable "tools_account_id" {
-  description = "AWS account ID for the tools account (required when role_type = cross-account)"
+variable "platform_account_id" {
+  description = "AWS account ID for the platform account (required when role_type = cross-account)"
   type        = string
   default     = null
 }
