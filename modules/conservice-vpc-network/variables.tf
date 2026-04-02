@@ -68,7 +68,7 @@ variable "enable_vpc_endpoints" {
 variable "interface_vpc_endpoints" {
   description = "List of AWS services for interface VPC endpoints"
   type        = list(string)
-  default     = ["ecr.api", "ecr.dkr", "sts", "secretsmanager", "logs"]
+  default     = ["ecr.api", "ecr.dkr", "sts", "secretsmanager", "logs", "ec2", "eks-auth", "elasticloadbalancing", "ssm", "autoscaling", "kinesis-firehose"]
 }
 
 # -----------------------------------------------------------------------------
