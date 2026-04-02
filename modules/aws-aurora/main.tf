@@ -59,12 +59,12 @@ resource "aws_kms_key" "aurora" {
   enable_key_rotation     = true
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-aurora-kms"
+    Name = "${var.cluster_name}-kms"
   })
 }
 
 resource "aws_kms_alias" "aurora" {
-  name          = "alias/${var.cluster_name}-aurora"
+  name          = "alias/${var.cluster_name}"
   target_key_id = aws_kms_key.aurora.key_id
 }
 
