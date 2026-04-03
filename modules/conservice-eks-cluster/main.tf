@@ -7,7 +7,7 @@ resource "aws_kms_key" "eks" {
   deletion_window_in_days = var.kms_deletion_window
   enable_key_rotation     = true
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-eks-kms"
+    Name = "${var.cluster_name}-eks-key"
   })
 
 }
