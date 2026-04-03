@@ -1,0 +1,102 @@
+# ArgoCD Helm values — rendered by Terraform templatefile()
+# This provides the initial bootstrap config. ArgoCD self-manages from Git
+# after the root Application syncs the full values from conservice-k8s-apps.
+
+global:
+  domain: ""
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+      effect: NoSchedule
+
+server:
+  replicas: 1
+  service:
+    type: ClusterIP
+
+repoServer:
+  replicas: 1
+
+controller:
+  replicas: 1
+
+redis:
+  enabled: true
+
+redis-ha:
+  enabled: false
+
+applicationSet:
+  replicas: 1
+
+notifications:
+  enabled: false
+
+dex:
+  enabled: ${enable_dex}
+
+configs:
+  params:
+    server.insecure: true
+    reposerver.parallelism.limit: 5
+
+  cm:
+    url: "${argocd_url}"
+    kustomize.buildOptions: "--enable-helm"
+
+    # Application health check — REQUIRED for sync-wave ordering
+    # Without this, ArgoCD won't wait for child apps to be Healthy before
+    # advancing to the next sync-wave.
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then
+          hs.status = obj.status.health.status
+          if obj.status.health.message ~= nil then
+            hs.message = obj.status.health.message
+          end
+        end
+      end
+      return hs
+
+    # Karpenter CRD health checks
+    resource.customizations.health.karpenter.sh_NodePool: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "NodePool is active"
+      return hs
+    resource.customizations.health.karpenter.k8s.aws_EC2NodeClass: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "EC2NodeClass is active"
+      return hs
+
+%{ if enable_dex }
+    dex.config: |
+      connectors:
+        - type: google
+          id: google
+          name: Google
+          config:
+            clientID: ${google_client_id}
+            clientSecret: ${google_client_secret}
+            redirectURI: ${argocd_url}/api/dex/callback
+            hostedDomains:
+              - conservice.com
+            groups:
+              - awsgf-admins
+              - awsgf-developers
+%{ endif }
+
+  rbac:
+    policy.csv: |
+      g, awsgf-admins, role:admin
+      g, awsgf-developers, role:readonly
+
+  credentialTemplates:
+    github-conservice:
+      url: https://github.com/shawnpetersen
+      password: "${github_token}"
+      username: x-access-token
