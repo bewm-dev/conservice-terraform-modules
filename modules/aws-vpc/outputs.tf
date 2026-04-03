@@ -98,6 +98,6 @@ output "igw_id" {
 }
 
 output "name_prefix" {
-  description = "The naming prefix used for all resources (conservice-{env}-{region})"
+  description = "The naming prefix used for all resources (con-{env}-{region})"
   value       = local.name_prefix
 }

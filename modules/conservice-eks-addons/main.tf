@@ -21,19 +21,19 @@ data "aws_iam_policy_document" "pod_identity_trust" {
 resource "aws_iam_role" "lbc" {
   count = var.enable_lbc ? 1 : 0
 
-  name               = "${var.cluster_name}-lbc"
+  name               = "${var.cluster_name}-lbc-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
-  tags               = { Name = "${var.cluster_name}-lbc" }
+  tags               = { Name = "${var.cluster_name}-lbc-role" }
 }
 
 resource "aws_iam_policy" "lbc" {
   count = var.enable_lbc ? 1 : 0
 
-  name   = "${var.cluster_name}-lbc"
+  name   = "${var.cluster_name}-lbc-policy"
   path   = "/eks/"
   policy = data.aws_iam_policy_document.lbc[0].json
-  tags   = { Name = "${var.cluster_name}-lbc" }
+  tags   = { Name = "${var.cluster_name}-lbc-policy" }
 }
 
 resource "aws_iam_role_policy_attachment" "lbc" {
@@ -219,19 +219,19 @@ data "aws_iam_policy_document" "lbc" {
 resource "aws_iam_role" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
-  name               = "${var.cluster_name}-external-dns"
+  name               = "${var.cluster_name}-external-dns-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
-  tags               = { Name = "${var.cluster_name}-external-dns" }
+  tags               = { Name = "${var.cluster_name}-external-dns-role" }
 }
 
 resource "aws_iam_policy" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
-  name   = "${var.cluster_name}-external-dns"
+  name   = "${var.cluster_name}-external-dns-policy"
   path   = "/eks/"
   policy = data.aws_iam_policy_document.external_dns[0].json
-  tags   = { Name = "${var.cluster_name}-external-dns" }
+  tags   = { Name = "${var.cluster_name}-external-dns-policy" }
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
@@ -279,19 +279,19 @@ data "aws_iam_policy_document" "external_dns" {
 resource "aws_iam_role" "eso" {
   count = var.enable_eso ? 1 : 0
 
-  name               = "${var.cluster_name}-eso"
+  name               = "${var.cluster_name}-eso-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
-  tags               = { Name = "${var.cluster_name}-eso" }
+  tags               = { Name = "${var.cluster_name}-eso-role" }
 }
 
 resource "aws_iam_policy" "eso" {
   count = var.enable_eso ? 1 : 0
 
-  name   = "${var.cluster_name}-eso"
+  name   = "${var.cluster_name}-eso-policy"
   path   = "/eks/"
   policy = data.aws_iam_policy_document.eso[0].json
-  tags   = { Name = "${var.cluster_name}-eso" }
+  tags   = { Name = "${var.cluster_name}-eso-policy" }
 }
 
 resource "aws_iam_role_policy_attachment" "eso" {
@@ -345,19 +345,19 @@ data "aws_iam_policy_document" "eso" {
 resource "aws_iam_role" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
-  name               = "${var.cluster_name}-karpenter"
+  name               = "${var.cluster_name}-karpenter-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
-  tags               = { Name = "${var.cluster_name}-karpenter" }
+  tags               = { Name = "${var.cluster_name}-karpenter-role" }
 }
 
 resource "aws_iam_policy" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
-  name   = "${var.cluster_name}-karpenter"
+  name   = "${var.cluster_name}-karpenter-policy"
   path   = "/eks/"
   policy = data.aws_iam_policy_document.karpenter[0].json
-  tags   = { Name = "${var.cluster_name}-karpenter" }
+  tags   = { Name = "${var.cluster_name}-karpenter-policy" }
 }
 
 resource "aws_iam_role_policy_attachment" "karpenter" {
@@ -450,10 +450,10 @@ data "aws_iam_policy_document" "karpenter" {
 resource "aws_sqs_queue" "karpenter_interruption" {
   count = var.enable_karpenter ? 1 : 0
 
-  name                      = "${var.cluster_name}-karpenter-interruption"
+  name                      = "${var.cluster_name}-karpenter-interruption-queue"
   message_retention_seconds = 300
   sqs_managed_sse_enabled   = true
-  tags                      = { Name = "${var.cluster_name}-karpenter-interruption" }
+  tags                      = { Name = "${var.cluster_name}-karpenter-interruption-queue" }
 }
 
 resource "aws_sqs_queue_policy" "karpenter_interruption" {
@@ -485,12 +485,12 @@ data "aws_iam_policy_document" "karpenter_interruption_queue" {
 resource "aws_cloudwatch_event_rule" "spot_interruption" {
   count = var.enable_karpenter ? 1 : 0
 
-  name = "${var.cluster_name}-spot-interruption"
+  name = "${var.cluster_name}-spot-interruption-rule"
   event_pattern = jsonencode({
     source      = ["aws.ec2"]
     detail-type = ["EC2 Spot Instance Interruption Warning"]
   })
-  tags = { Name = "${var.cluster_name}-spot-interruption" }
+  tags = { Name = "${var.cluster_name}-spot-interruption-rule" }
 }
 
 resource "aws_cloudwatch_event_target" "spot_interruption" {
@@ -503,12 +503,12 @@ resource "aws_cloudwatch_event_target" "spot_interruption" {
 resource "aws_cloudwatch_event_rule" "instance_rebalance" {
   count = var.enable_karpenter ? 1 : 0
 
-  name = "${var.cluster_name}-instance-rebalance"
+  name = "${var.cluster_name}-instance-rebalance-rule"
   event_pattern = jsonencode({
     source      = ["aws.ec2"]
     detail-type = ["EC2 Instance Rebalance Recommendation"]
   })
-  tags = { Name = "${var.cluster_name}-instance-rebalance" }
+  tags = { Name = "${var.cluster_name}-instance-rebalance-rule" }
 }
 
 resource "aws_cloudwatch_event_target" "instance_rebalance" {
@@ -521,12 +521,12 @@ resource "aws_cloudwatch_event_target" "instance_rebalance" {
 resource "aws_cloudwatch_event_rule" "instance_state_change" {
   count = var.enable_karpenter ? 1 : 0
 
-  name = "${var.cluster_name}-instance-state-change"
+  name = "${var.cluster_name}-instance-state-change-rule"
   event_pattern = jsonencode({
     source      = ["aws.ec2"]
     detail-type = ["EC2 Instance State-change Notification"]
   })
-  tags = { Name = "${var.cluster_name}-instance-state-change" }
+  tags = { Name = "${var.cluster_name}-instance-state-change-rule" }
 }
 
 resource "aws_cloudwatch_event_target" "instance_state_change" {

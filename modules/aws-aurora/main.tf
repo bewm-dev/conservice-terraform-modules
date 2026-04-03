@@ -65,7 +65,7 @@ resource "aws_kms_key" "aurora" {
 }
 
 resource "aws_kms_alias" "aurora" {
-  name          = "alias/${var.cluster_name}"
+  name          = "alias/${var.cluster_name}-key"
   target_key_id = aws_kms_key.aurora.key_id
 }
 
@@ -159,7 +159,7 @@ resource "aws_db_parameter_group" "this" {
 resource "aws_iam_role" "enhanced_monitoring" {
   count = var.enhanced_monitoring_interval > 0 ? 1 : 0
 
-  name = "${var.cluster_name}-rds-monitoring"
+  name = "${var.cluster_name}-rds-monitoring-role"
   path = "/rds/"
 
   assume_role_policy = jsonencode({
@@ -172,7 +172,7 @@ resource "aws_iam_role" "enhanced_monitoring" {
   })
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-rds-monitoring"
+    Name = "${var.cluster_name}-rds-monitoring-role"
   })
 }
 

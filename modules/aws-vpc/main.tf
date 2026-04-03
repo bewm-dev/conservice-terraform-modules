@@ -5,7 +5,7 @@
 # across specified AZs. Includes IGW, NAT Gateway, route tables, flow logs,
 # and optional VPC endpoints.
 #
-# Naming: conservice-{env}-{region}-{resource}
+# Naming: con-{env}-{region}-{resource}-{type}
 # -----------------------------------------------------------------------------
 
 locals {
@@ -19,7 +19,7 @@ locals {
     "ap-southeast-1" = "apse1"
   }
   region_code = local.region_codes[var.aws_region]
-  name_prefix = "conservice-${var.env}-${local.region_code}"
+  name_prefix = "con-${var.env}-${local.region_code}"
   az_count    = length(var.azs)
   vpc_bits    = tonumber(split("/", var.vpc_cidr)[1])
 
@@ -147,7 +147,7 @@ resource "aws_nat_gateway" "this" {
   subnet_id     = aws_subnet.public[each.key].id
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-nat-${each.key}"
+    Name = "${local.name_prefix}-nat-${each.key}-gw"
   })
 
   depends_on = [aws_internet_gateway.this]
@@ -288,7 +288,7 @@ resource "aws_cloudwatch_log_group" "flow_log" {
 resource "aws_iam_role" "flow_log" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name = "${local.name_prefix}-vpc-flow-log"
+  name = "${local.name_prefix}-vpc-flow-log-role"
   path = "/infrastructure/"
 
   assume_role_policy = jsonencode({
@@ -308,7 +308,7 @@ resource "aws_iam_role" "flow_log" {
 resource "aws_iam_role_policy" "flow_log" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name = "${local.name_prefix}-vpc-flow-log"
+  name = "${local.name_prefix}-vpc-flow-log-policy"
   role = aws_iam_role.flow_log[0].id
 
   policy = jsonencode({

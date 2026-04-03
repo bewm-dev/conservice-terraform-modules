@@ -2,7 +2,7 @@
 # conservice-vpc-network
 #
 # Complete spoke-account networking: VPC + security groups + TGW connectivity.
-# Naming: conservice-{env}-{region}-{resource}
+# Naming: con-{env}-{region}-{resource}-{type}
 # =============================================================================
 
 locals {
@@ -16,7 +16,7 @@ locals {
     "ap-southeast-1" = "apse1"
   }
   region_code = local.region_codes[var.aws_region]
-  name_prefix = "conservice-${var.env}-${local.region_code}"
+  name_prefix = "con-${var.env}-${local.region_code}"
 }
 
 # -----------------------------------------------------------------------------
@@ -103,12 +103,12 @@ resource "aws_route" "private_db_tgw_rfc1918_172" {
 resource "aws_security_group" "eks_cluster_additional" {
   count = var.create_eks_sg ? 1 : 0
 
-  name        = "${local.name_prefix}-eks-cluster-additional"
+  name        = "${local.name_prefix}-eks-cluster-additional-sg"
   description = "Additional security group for EKS cluster API access"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-eks-cluster-additional"
+    Name = "${local.name_prefix}-eks-cluster-additional-sg"
   })
 }
 
@@ -150,12 +150,12 @@ resource "aws_vpc_security_group_egress_rule" "eks_all_outbound" {
 resource "aws_security_group" "aurora" {
   count = var.create_aurora_sg ? 1 : 0
 
-  name        = "${local.name_prefix}-aurora"
+  name        = "${local.name_prefix}-aurora-sg"
   description = "Security group for Aurora PostgreSQL clusters"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-aurora"
+    Name = "${local.name_prefix}-aurora-sg"
   })
 }
 
@@ -184,12 +184,12 @@ resource "aws_vpc_security_group_egress_rule" "aurora_all_outbound" {
 # -----------------------------------------------------------------------------
 
 resource "aws_security_group" "internal" {
-  name        = "${local.name_prefix}-internal"
+  name        = "${local.name_prefix}-internal-sg"
   description = "Internal traffic within VPC and cross-account via TGW"
   vpc_id      = module.vpc.vpc_id
 
   tags = merge(var.tags, {
-    Name = "${local.name_prefix}-internal"
+    Name = "${local.name_prefix}-internal-sg"
   })
 }
 

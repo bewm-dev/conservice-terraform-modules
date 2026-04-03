@@ -5,11 +5,11 @@
 # Creates TF execution, EKS cluster, EKS node, and optional ECR pull and
 # Aurora access roles.
 #
-# Naming: conservice-{env}-{resource}
+# Naming: con-{env}-{resource}-{type}
 # -----------------------------------------------------------------------------
 
 locals {
-  name_prefix = "conservice-${var.env}"
+  name_prefix = "con-${var.env}"
 }
 
 # -----------------------------------------------------------------------------
@@ -46,7 +46,7 @@ data "aws_iam_policy_document" "tf_execution_trust" {
 }
 
 resource "aws_iam_role" "tf_execution" {
-  name               = "${local.name_prefix}-tf-execution"
+  name               = "${local.name_prefix}-tf-execution-role"
   path               = "/infrastructure/"
   assume_role_policy = data.aws_iam_policy_document.tf_execution_trust.json
 }
@@ -107,7 +107,7 @@ data "aws_iam_policy_document" "tf_execution" {
 }
 
 resource "aws_iam_policy" "tf_execution" {
-  name   = "${local.name_prefix}-tf-execution"
+  name   = "${local.name_prefix}-tf-execution-policy"
   path   = "/infrastructure/"
   policy = data.aws_iam_policy_document.tf_execution.json
 }
@@ -133,7 +133,7 @@ data "aws_iam_policy_document" "eks_cluster_trust" {
 }
 
 resource "aws_iam_role" "eks_cluster" {
-  name               = "${local.name_prefix}-eks-cluster"
+  name               = "${local.name_prefix}-eks-cluster-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.eks_cluster_trust.json
 }
@@ -164,7 +164,7 @@ data "aws_iam_policy_document" "eks_node_trust" {
 }
 
 resource "aws_iam_role" "eks_node" {
-  name               = "${local.name_prefix}-eks-node"
+  name               = "${local.name_prefix}-eks-node-role"
   path               = "/eks/"
   assume_role_policy = data.aws_iam_policy_document.eks_node_trust.json
 }
@@ -190,7 +190,7 @@ resource "aws_iam_role_policy_attachment" "eks_ssm" {
 }
 
 resource "aws_iam_instance_profile" "eks_node" {
-  name = "${local.name_prefix}-eks-node"
+  name = "${local.name_prefix}-eks-node-profile"
   path = "/eks/"
   role = aws_iam_role.eks_node.name
 }
@@ -215,7 +215,7 @@ data "aws_iam_policy_document" "ecr_pull_trust" {
 resource "aws_iam_role" "ecr_pull" {
   count = var.enable_ecr_pull_role ? 1 : 0
 
-  name               = "${local.name_prefix}-ecr-cross-account-pull"
+  name               = "${local.name_prefix}-ecr-cross-account-pull-role"
   path               = "/ecr/"
   assume_role_policy = data.aws_iam_policy_document.ecr_pull_trust[0].json
 }
@@ -245,7 +245,7 @@ data "aws_iam_policy_document" "ecr_pull" {
 resource "aws_iam_policy" "ecr_pull" {
   count = var.enable_ecr_pull_role ? 1 : 0
 
-  name   = "${local.name_prefix}-ecr-cross-account-pull"
+  name   = "${local.name_prefix}-ecr-cross-account-pull-policy"
   path   = "/ecr/"
   policy = data.aws_iam_policy_document.ecr_pull[0].json
 }
@@ -277,7 +277,7 @@ data "aws_iam_policy_document" "aurora_trust" {
 resource "aws_iam_role" "aurora" {
   count = var.enable_aurora_role ? 1 : 0
 
-  name               = "${local.name_prefix}-aurora-access"
+  name               = "${local.name_prefix}-aurora-access-role"
   path               = "/database/"
   assume_role_policy = data.aws_iam_policy_document.aurora_trust[0].json
 }
@@ -310,7 +310,7 @@ data "aws_iam_policy_document" "aurora" {
 resource "aws_iam_policy" "aurora" {
   count = var.enable_aurora_role ? 1 : 0
 
-  name   = "${local.name_prefix}-aurora-access"
+  name   = "${local.name_prefix}-aurora-access-policy"
   path   = "/database/"
   policy = data.aws_iam_policy_document.aurora[0].json
 }

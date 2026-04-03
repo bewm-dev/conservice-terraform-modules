@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 
 variable "cluster_name" {
-  description = "Name of the Aurora cluster (e.g. conservice-prod-aurora)"
+  description = "Name of the Aurora cluster (e.g. con-prod-use1-aurora-cluster)"
   type        = string
 }
 

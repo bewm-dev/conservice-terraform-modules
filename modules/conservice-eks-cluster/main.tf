@@ -13,7 +13,7 @@ resource "aws_kms_key" "eks" {
 }
 
 resource "aws_kms_alias" "eks" {
-  name          = "alias/${var.cluster_name}-eks"
+  name          = "alias/${var.cluster_name}-eks-key"
   target_key_id = aws_kms_key.eks.key_id
 }
 
