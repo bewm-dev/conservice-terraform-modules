@@ -535,3 +535,42 @@ resource "aws_cloudwatch_event_target" "instance_state_change" {
   rule = aws_cloudwatch_event_rule.instance_state_change[0].name
   arn  = aws_sqs_queue.karpenter_interruption[0].arn
 }
+
+# =============================================================================
+# CloudWatch Container Insights (OTEL-based)
+# =============================================================================
+
+resource "aws_iam_role" "container_insights" {
+  count = var.enable_container_insights ? 1 : 0
+
+  name               = "${var.cluster_name}-cloudwatch-role"
+  path               = "/eks/"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
+
+  tags = { Name = "${var.cluster_name}-cloudwatch-role" }
+}
+
+resource "aws_iam_role_policy_attachment" "container_insights" {
+  count = var.enable_container_insights ? 1 : 0
+
+  role       = aws_iam_role.container_insights[0].name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_eks_pod_identity_association" "container_insights" {
+  count = var.enable_container_insights ? 1 : 0
+
+  cluster_name    = var.cluster_name
+  namespace       = "amazon-cloudwatch"
+  service_account = "cloudwatch-agent"
+  role_arn        = aws_iam_role.container_insights[0].arn
+}
+
+resource "aws_eks_addon" "container_insights" {
+  count = var.enable_container_insights ? 1 : 0
+
+  cluster_name = var.cluster_name
+  addon_name   = "amazon-cloudwatch-observability"
+
+  tags = { Name = "${var.cluster_name}-container-insights" }
+}
