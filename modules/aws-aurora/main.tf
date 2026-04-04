@@ -45,7 +45,7 @@ locals {
   instance_class          = coalesce(var.instance_class, local.preset.instance_class)
 
   # Derive parameter group family from engine version (e.g. "16.4" -> "aurora-postgresql16")
-  pg_major_version     = split(".", var.engine_version)[0]
+  pg_major_version       = split(".", var.engine_version)[0]
   parameter_group_family = "aurora-postgresql${local.pg_major_version}"
 }
 
@@ -191,12 +191,12 @@ resource "aws_iam_role_policy_attachment" "enhanced_monitoring" {
 # -----------------------------------------------------------------------------
 
 resource "aws_rds_cluster" "this" {
-  cluster_identifier = var.cluster_name
-  engine             = "aurora-postgresql"
-  engine_mode        = "provisioned"
-  engine_version     = var.engine_version
-  database_name      = var.database_name
-  master_username    = var.master_username
+  cluster_identifier         = var.cluster_name
+  engine                     = "aurora-postgresql"
+  engine_mode                = "provisioned"
+  engine_version             = var.engine_version
+  database_name              = var.database_name
+  master_username            = var.master_username
   master_password_wo         = var.master_password
   master_password_wo_version = var.master_password_version
 
@@ -209,8 +209,8 @@ resource "aws_rds_cluster" "this" {
 
   iam_database_authentication_enabled = var.iam_database_authentication_enabled
 
-  backup_retention_period   = local.backup_retention_period
-  preferred_backup_window   = var.preferred_backup_window
+  backup_retention_period      = local.backup_retention_period
+  preferred_backup_window      = var.preferred_backup_window
   preferred_maintenance_window = var.preferred_maintenance_window
 
   deletion_protection       = local.deletion_protection

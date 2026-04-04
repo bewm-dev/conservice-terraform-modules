@@ -32,7 +32,7 @@ resource "aws_eks_cluster" "this" {
 
   access_config {
     authentication_mode                         = "API_AND_CONFIG_MAP"
-    bootstrap_cluster_creator_admin_permissions  = var.bootstrap_cluster_creator_admin
+    bootstrap_cluster_creator_admin_permissions = var.bootstrap_cluster_creator_admin
   }
 
   dynamic "kubernetes_network_config" {
