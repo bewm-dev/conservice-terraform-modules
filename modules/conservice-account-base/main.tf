@@ -293,7 +293,10 @@ data "aws_iam_policy_document" "aurora" {
       "s3:ListBucket",
       "s3:DeleteObject",
     ]
-    resources = ["*"]
+    resources = [
+      "arn:aws:s3:::conservice-${var.env}-aurora-*",
+      "arn:aws:s3:::conservice-${var.env}-aurora-*/*",
+    ]
   }
 
   statement {

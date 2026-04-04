@@ -125,23 +125,38 @@ resource "aws_eks_node_group" "system" {
 }
 
 # -----------------------------------------------------------------------------
-# EKS Addons
+# EKS Addons — version pinned via data source for stability
+# To upgrade: terraform apply will pick up new versions on next plan
 # -----------------------------------------------------------------------------
 
+locals {
+  eks_addons = ["vpc-cni", "coredns", "kube-proxy", "eks-pod-identity-agent"]
+}
+
+data "aws_eks_addon_version" "this" {
+  for_each = toset(local.eks_addons)
+
+  addon_name         = each.key
+  kubernetes_version = aws_eks_cluster.this.version
+  most_recent        = true
+}
+
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "vpc-cni"
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = "vpc-cni"
+  addon_version = data.aws_eks_addon_version.this["vpc-cni"].version
 
   resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
 }
 
 resource "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "coredns"
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = "coredns"
+  addon_version = data.aws_eks_addon_version.this["coredns"].version
 
   resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
 
   depends_on = [
     aws_eks_access_entry.node,
@@ -150,19 +165,21 @@ resource "aws_eks_addon" "coredns" {
 }
 
 resource "aws_eks_addon" "kube_proxy" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "kube-proxy"
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = "kube-proxy"
+  addon_version = data.aws_eks_addon_version.this["kube-proxy"].version
 
   resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
 }
 
 resource "aws_eks_addon" "pod_identity_agent" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "eks-pod-identity-agent"
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = "eks-pod-identity-agent"
+  addon_version = data.aws_eks_addon_version.this["eks-pod-identity-agent"].version
 
   resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
 }
 
 # -----------------------------------------------------------------------------
