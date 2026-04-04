@@ -16,7 +16,7 @@ variable "namespace" {
 }
 
 variable "argocd_url" {
-  description = "ArgoCD external URL (e.g. https://argocd.conservice.ai)"
+  description = "ArgoCD external URL (e.g. https://argocd.conservice.cloud)"
   type        = string
 }
 
