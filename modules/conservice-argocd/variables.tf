@@ -15,52 +15,11 @@ variable "namespace" {
   default     = "argocd"
 }
 
-variable "argocd_url" {
-  description = "ArgoCD external URL (e.g. https://argocd.conservice.cloud)"
-  type        = string
-}
-
 variable "github_token" {
   description = "GitHub PAT for repo access (from Secrets Manager via ephemeral)"
   type        = string
   ephemeral   = true
   sensitive   = true
-}
-
-variable "google_oidc_client_id" {
-  description = "Google OAuth client ID for Dex SSO (from Secrets Manager via ephemeral)"
-  type        = string
-  ephemeral   = true
-  sensitive   = true
-  default     = ""
-}
-
-variable "google_oidc_client_secret" {
-  description = "Google OAuth client secret for Dex SSO (from Secrets Manager via ephemeral)"
-  type        = string
-  ephemeral   = true
-  sensitive   = true
-  default     = ""
-}
-
-variable "google_sa_json" {
-  description = "Google service account JSON key for Dex group lookup (from Secrets Manager via ephemeral)"
-  type        = string
-  ephemeral   = true
-  sensitive   = true
-  default     = ""
-}
-
-variable "google_admin_email" {
-  description = "Google Workspace admin email for directory API delegation (e.g. conservicegoogleservice@conservice.com)"
-  type        = string
-  default     = ""
-}
-
-variable "enable_dex" {
-  description = "Enable Dex SSO (requires Google OAuth credentials + service account)"
-  type        = bool
-  default     = false
 }
 
 variable "repo_url" {
@@ -76,6 +35,6 @@ variable "repo_target_revision" {
 }
 
 variable "bootstrap_cluster_path" {
-  description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/platform-mgmt)"
+  description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/plat-use1-mgmt)"
   type        = string
 }
