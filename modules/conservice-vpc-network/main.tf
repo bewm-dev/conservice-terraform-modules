@@ -159,15 +159,15 @@ resource "aws_security_group" "aurora" {
   })
 }
 
-resource "aws_vpc_security_group_ingress_rule" "aurora_postgres_from_vpc" {
-  count = var.create_aurora_sg ? 1 : 0
+resource "aws_vpc_security_group_ingress_rule" "aurora_postgres_from_eks" {
+  count = var.create_aurora_sg && var.create_eks_sg ? 1 : 0
 
-  security_group_id = aws_security_group.aurora[0].id
-  description       = "PostgreSQL from VPC CIDR"
-  cidr_ipv4         = var.vpc_cidr
-  from_port         = 5432
-  to_port           = 5432
-  ip_protocol       = "tcp"
+  security_group_id            = aws_security_group.aurora[0].id
+  description                  = "PostgreSQL from EKS cluster"
+  referenced_security_group_id = aws_security_group.eks_cluster_additional[0].id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
 }
 
 resource "aws_vpc_security_group_egress_rule" "aurora_all_outbound" {

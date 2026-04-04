@@ -93,17 +93,6 @@ data "aws_iam_policy_document" "tf_execution" {
     ]
   }
 
-  statement {
-    sid = "DynamoDBLocking"
-    actions = [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:DeleteItem",
-    ]
-    resources = [
-      "arn:aws:dynamodb:*:${var.aws_account_id}:table/conservice-tf-locks",
-    ]
-  }
 }
 
 resource "aws_iam_policy" "tf_execution" {
