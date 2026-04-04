@@ -65,6 +65,12 @@ resource "helm_release" "argocd" {
   })]
 
   depends_on = [kubernetes_namespace.argocd, kubernetes_secret.dex_google_sa]
+
+  # After initial bootstrap, ArgoCD self-manages from Git.
+  # Ignore values changes so Terraform doesn't fight ArgoCD for control.
+  lifecycle {
+    ignore_changes = [values]
+  }
 }
 
 # -----------------------------------------------------------------------------

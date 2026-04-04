@@ -197,7 +197,8 @@ resource "aws_rds_cluster" "this" {
   engine_version     = var.engine_version
   database_name      = var.database_name
   master_username    = var.master_username
-  master_password    = var.master_password
+  master_password_wo         = var.master_password
+  master_password_wo_version = var.master_password_version
 
   db_subnet_group_name            = aws_db_subnet_group.this.name
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.this.name

@@ -53,7 +53,7 @@ configs:
 
   cm:
     url: "${argocd_url}"
-    kustomize.buildOptions: "--enable-helm"
+    kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
 
     # Application health check — REQUIRED for sync-wave ordering
     # Without this, ArgoCD won't wait for child apps to be Healthy before

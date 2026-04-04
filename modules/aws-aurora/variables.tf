@@ -24,9 +24,16 @@ variable "master_username" {
 }
 
 variable "master_password" {
-  description = "Master password for the Aurora cluster (from Secrets Manager)"
+  description = "Master password for the Aurora cluster (from Secrets Manager via ephemeral)"
   type        = string
+  ephemeral   = true
   sensitive   = true
+}
+
+variable "master_password_version" {
+  description = "Increment to trigger a master password rotation (used with master_password_wo)"
+  type        = number
+  default     = 1
 }
 
 variable "subnet_ids" {
