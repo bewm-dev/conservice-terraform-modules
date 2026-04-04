@@ -11,6 +11,36 @@
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
+# Google Service Account Secret (for Dex group lookup)
+# -----------------------------------------------------------------------------
+#
+# Dex needs a Google service account JSON key to query the Admin Directory API
+# for group memberships. This secret is mounted into the Dex pod as a file.
+# Only created when Dex is enabled.
+# -----------------------------------------------------------------------------
+
+resource "kubernetes_namespace" "argocd" {
+  metadata {
+    name = var.namespace
+  }
+}
+
+resource "kubernetes_secret" "dex_google_sa" {
+  count = var.enable_dex ? 1 : 0
+
+  metadata {
+    name      = "dex-google-groups"
+    namespace = var.namespace
+  }
+
+  data = {
+    "googleAuth.json" = var.google_sa_json
+  }
+
+  depends_on = [kubernetes_namespace.argocd]
+}
+
+# -----------------------------------------------------------------------------
 # ArgoCD Helm Release
 # -----------------------------------------------------------------------------
 
@@ -21,7 +51,7 @@ resource "helm_release" "argocd" {
   version    = var.chart_version
   namespace  = var.namespace
 
-  create_namespace = true
+  create_namespace = false
   wait             = true
   timeout          = 600
 
@@ -30,8 +60,11 @@ resource "helm_release" "argocd" {
     enable_dex           = var.enable_dex
     google_client_id     = var.google_oidc_client_id
     google_client_secret = var.google_oidc_client_secret
+    google_admin_email   = var.google_admin_email
     github_token         = var.github_token
   })]
+
+  depends_on = [kubernetes_namespace.argocd, kubernetes_secret.dex_google_sa]
 }
 
 # -----------------------------------------------------------------------------

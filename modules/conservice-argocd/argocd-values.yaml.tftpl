@@ -34,6 +34,17 @@ notifications:
 
 dex:
   enabled: ${enable_dex}
+%{ if enable_dex }
+  # Mount Google service account JSON key for directory API group lookup
+  volumes:
+    - name: google-groups
+      secret:
+        secretName: dex-google-groups
+  volumeMounts:
+    - name: google-groups
+      mountPath: /etc/dex/google
+      readOnly: true
+%{ endif }
 
 configs:
   params:
@@ -85,12 +96,18 @@ configs:
             redirectURI: ${argocd_url}/api/dex/callback
             hostedDomains:
               - conservice.com
+            # Service account for Google Admin Directory API group lookup
+            serviceAccountFilePath: /etc/dex/google/googleAuth.json
+            adminEmail: ${google_admin_email}
+            fetchTransitiveGroupMembership: true
             groups:
               - awsgf-admins
               - awsgf-developers
 %{ endif }
 
   rbac:
+    policy.default: ''
+    scopes: '[groups]'
     policy.csv: |
       g, awsgf-admins, role:admin
       g, awsgf-developers, role:readonly

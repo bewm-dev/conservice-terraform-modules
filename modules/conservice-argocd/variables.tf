@@ -43,8 +43,22 @@ variable "google_oidc_client_secret" {
   default     = ""
 }
 
+variable "google_sa_json" {
+  description = "Google service account JSON key for Dex group lookup (from Secrets Manager via ephemeral)"
+  type        = string
+  ephemeral   = true
+  sensitive   = true
+  default     = ""
+}
+
+variable "google_admin_email" {
+  description = "Google Workspace admin email for directory API delegation (e.g. conservicegoogleservice@conservice.com)"
+  type        = string
+  default     = ""
+}
+
 variable "enable_dex" {
-  description = "Enable Dex SSO (requires Google OAuth credentials)"
+  description = "Enable Dex SSO (requires Google OAuth credentials + service account)"
   type        = bool
   default     = false
 }
