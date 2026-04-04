@@ -19,7 +19,7 @@ locals {
     "ap-southeast-1" = "apse1"
   }
   region_code = local.region_codes[var.aws_region]
-  name_prefix = "con-${var.env}-${local.region_code}"
+  name_prefix = "csvc-${var.env}-${local.region_code}"
   az_count    = length(var.azs)
   vpc_bits    = tonumber(split("/", var.vpc_cidr)[1])
 

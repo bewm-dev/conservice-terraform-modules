@@ -124,19 +124,19 @@ resource "aws_s3_bucket_public_access_block" "buckets" {
 resource "aws_sqs_queue" "dlqs" {
   for_each = { for k, v in local.queues : k => v if lookup(v, "dlq", true) }
 
-  name                      = "con-${var.env}-${var.app_name}-${each.key}-dlq"
+  name                      = "csvc-${var.env}-${var.app_name}-${each.key}-dlq"
   message_retention_seconds = lookup(each.value, "dlq_retention_seconds", 1209600) # 14 days
   sqs_managed_sse_enabled   = true
 
   tags = merge(local.app_tags, {
-    Name = "con-${var.env}-${var.app_name}-${each.key}-dlq"
+    Name = "csvc-${var.env}-${var.app_name}-${each.key}-dlq"
   })
 }
 
 resource "aws_sqs_queue" "queues" {
   for_each = local.queues
 
-  name                       = "con-${var.env}-${var.app_name}-${each.key}-queue"
+  name                       = "csvc-${var.env}-${var.app_name}-${each.key}-queue"
   visibility_timeout_seconds = lookup(each.value, "visibility_timeout", 30)
   message_retention_seconds  = lookup(each.value, "retention_seconds", 345600) # 4 days
   sqs_managed_sse_enabled    = true
@@ -150,7 +150,7 @@ resource "aws_sqs_queue" "queues" {
   }
 
   tags = merge(local.app_tags, {
-    Name = "con-${var.env}-${var.app_name}-${each.key}-queue"
+    Name = "csvc-${var.env}-${var.app_name}-${each.key}-queue"
   })
 }
 
@@ -161,10 +161,10 @@ resource "aws_sqs_queue" "queues" {
 resource "aws_sns_topic" "topics" {
   for_each = local.topics
 
-  name              = "con-${var.env}-${var.app_name}-${each.key}-topic"
+  name              = "csvc-${var.env}-${var.app_name}-${each.key}-topic"
   kms_master_key_id = "alias/aws/sns"
 
   tags = merge(local.app_tags, {
-    Name = "con-${var.env}-${var.app_name}-${each.key}-topic"
+    Name = "csvc-${var.env}-${var.app_name}-${each.key}-topic"
   })
 }

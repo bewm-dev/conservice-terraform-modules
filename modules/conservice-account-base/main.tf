@@ -5,11 +5,11 @@
 # Creates TF execution, EKS cluster, EKS node, and optional ECR pull and
 # Aurora access roles.
 #
-# Naming: con-{env}-{resource}-{type}
+# Naming: csvc-{env}-{resource}-{type}
 # -----------------------------------------------------------------------------
 
 locals {
-  name_prefix = "con-${var.env}"
+  name_prefix = "csvc-${var.env}"
 }
 
 # -----------------------------------------------------------------------------
