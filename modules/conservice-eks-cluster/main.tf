@@ -32,6 +32,7 @@ module "eks" {
   node_role_arn                 = var.node_role_arn
   cluster_admin_arns            = var.cluster_admin_arns
   additional_security_group_ids = var.additional_security_group_ids
+  public_access_cidrs           = var.public_access_cidrs
   kms_key_arn                   = aws_kms_key.eks.arn
 
   env  = var.env

@@ -49,10 +49,16 @@ variable "additional_security_group_ids" {
   default     = []
 }
 
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access the public API endpoint"
+  type        = list(string)
+  default     = []
+}
+
 variable "cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.33"
+  default     = "1.35"
 }
 
 variable "kms_deletion_window" {

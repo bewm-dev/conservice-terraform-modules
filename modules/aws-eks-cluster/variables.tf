@@ -46,7 +46,7 @@ variable "endpoint_public_access" {
 variable "public_access_cidrs" {
   description = "CIDR blocks allowed to access the public API endpoint. Only applies when endpoint_public_access is true."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []  # Empty = no public access. Must be explicitly set per cluster.
 }
 
 variable "additional_security_group_ids" {
