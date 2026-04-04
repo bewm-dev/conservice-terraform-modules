@@ -8,12 +8,12 @@ variable "cluster_name" {
 }
 
 variable "env" {
-  description = "Environment name (e.g., dev, staging, prod, platform)"
+  description = "Environment name (e.g., dev, stg, prod, plat)"
   type        = string
 
   validation {
-    condition     = contains(["dev", "staging", "prod", "platform"], var.env)
-    error_message = "Environment must be one of: dev, staging, prod, platform."
+    condition     = contains(["dev", "stg", "prod", "plat"], var.env)
+    error_message = "Environment must be one of: dev, stg, prod, plat."
   }
 }
 
