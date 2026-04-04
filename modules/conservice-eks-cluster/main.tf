@@ -10,6 +10,9 @@ resource "aws_kms_key" "eks" {
     Name = "${var.cluster_name}-eks-key"
   })
 
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "eks" {

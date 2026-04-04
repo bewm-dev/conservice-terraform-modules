@@ -320,7 +320,7 @@ data "aws_iam_policy_document" "eso" {
       "secretsmanager:DescribeSecret",
       "secretsmanager:ListSecrets",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:secretsmanager:*:${var.aws_account_id}:secret:*"]
   }
 
   statement {
@@ -330,7 +330,7 @@ data "aws_iam_policy_document" "eso" {
       "ssm:GetParameters",
       "ssm:GetParametersByPath",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:ssm:*:${var.aws_account_id}:parameter/*"]
   }
 }
 

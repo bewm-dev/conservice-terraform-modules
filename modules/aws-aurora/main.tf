@@ -62,6 +62,9 @@ resource "aws_kms_key" "aurora" {
     Name = "${var.cluster_name}-kms"
   })
 
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "aurora" {
@@ -224,6 +227,9 @@ resource "aws_rds_cluster" "this" {
     Name = var.cluster_name
   })
 
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -----------------------------------------------------------------------------
