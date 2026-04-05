@@ -37,12 +37,6 @@ variable "project" {
   default     = "conservice"
 }
 
-variable "cluster_names" {
-  description = "EKS cluster names for Kubernetes subnet tags. Empty list omits K8s tags."
-  type        = list(string)
-  default     = []
-}
-
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
