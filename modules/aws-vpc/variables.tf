@@ -37,10 +37,10 @@ variable "project" {
   default     = "conservice"
 }
 
-variable "cluster_name" {
-  description = "EKS cluster name for Kubernetes subnet tags. If null, K8s tags are omitted."
-  type        = string
-  default     = null
+variable "cluster_names" {
+  description = "EKS cluster names for Kubernetes subnet tags. Empty list omits K8s tags."
+  type        = list(string)
+  default     = []
 }
 
 variable "tags" {

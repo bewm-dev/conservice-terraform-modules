@@ -100,9 +100,9 @@ resource "aws_subnet" "public" {
   tags = merge(var.tags, {
     Name                     = "${local.name_prefix}-public-${each.key}"
     "kubernetes.io/role/elb" = "1"
-    }, var.cluster_name != null ? {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  } : {})
+    },
+    { for name in var.cluster_names : "kubernetes.io/cluster/${name}" => "shared" }
+  )
 }
 
 resource "aws_route_table" "public" {
@@ -170,10 +170,10 @@ resource "aws_subnet" "private_app" {
   tags = merge(var.tags, {
     Name                              = "${local.name_prefix}-private-app-${each.key}"
     "kubernetes.io/role/internal-elb" = "1"
-    }, var.cluster_name != null ? {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "karpenter.sh/discovery"                    = var.cluster_name
-  } : {})
+    },
+    { for name in var.cluster_names : "kubernetes.io/cluster/${name}" => "shared" },
+    length(var.cluster_names) > 0 ? { "karpenter.sh/discovery" = var.cluster_names[0] } : {}
+  )
 }
 
 resource "aws_route_table" "private_app" {
