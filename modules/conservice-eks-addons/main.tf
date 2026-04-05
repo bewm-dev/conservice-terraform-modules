@@ -626,25 +626,13 @@ resource "aws_eks_pod_identity_association" "container_insights" {
   role_arn        = aws_iam_role.container_insights[0].arn
 }
 
-data "aws_eks_addon_version" "container_insights" {
-  count = var.enable_container_insights ? 1 : 0
-
-  addon_name         = "amazon-cloudwatch-observability"
-  kubernetes_version = data.aws_eks_cluster.this[0].version
-  most_recent        = true
-}
-
-data "aws_eks_cluster" "this" {
-  count = var.enable_container_insights ? 1 : 0
-  name  = var.cluster_name
-}
-
 resource "aws_eks_addon" "container_insights" {
   count = var.enable_container_insights ? 1 : 0
 
-  cluster_name  = var.cluster_name
-  addon_name    = "amazon-cloudwatch-observability"
-  addon_version = data.aws_eks_addon_version.container_insights[0].version
+  cluster_name = var.cluster_name
+  addon_name   = "amazon-cloudwatch-observability"
+  # Version managed by EKS — auto-selects latest compatible version
+  resolve_conflicts_on_create = "OVERWRITE"
 
   tags = { Name = "${var.cluster_name}-container-insights" }
 }
