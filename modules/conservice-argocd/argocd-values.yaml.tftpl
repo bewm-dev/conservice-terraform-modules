@@ -1,25 +1,48 @@
 # ArgoCD Bootstrap Values — rendered by Terraform templatefile()
 #
-# MINIMAL config to get ArgoCD running and connected to the Git repo.
-# ArgoCD self-manages from Git after the root Application syncs,
-# which provides the full config (Dex SSO, domain, RBAC, health checks, etc.)
+# Full config so the initial argocd-cm configmap is complete.
+# ArgoCD self-manages from Git after bootstrap — Terraform ignores
+# values after first apply (lifecycle.ignore_changes).
 
 global:
+  domain: ${argocd_domain}
   tolerations:
     - key: CriticalAddonsOnly
       operator: Exists
       effect: NoSchedule
 
+dex:
+  enabled: ${enable_dex}
+  extraArgs:
+    - --disable-tls
+%{ if enable_dex ~}
+  volumes:
+    - name: google-groups
+      secret:
+        secretName: dex-google-groups
+  volumeMounts:
+    - name: google-groups
+      mountPath: /etc/dex/google
+      readOnly: true
+%{ endif ~}
+
 server:
-  replicas: 1
+  extraArgs:
+    - --dex-server-plaintext
+    - --dex-server=http://argocd-dex-server:5556
   service:
     type: ClusterIP
+  autoscaling:
+    enabled: true
+    minReplicas: 1
 
 repoServer:
-  replicas: 1
+  autoscaling:
+    enabled: true
+    minReplicas: 1
 
 controller:
-  replicas: 1
+  replicas: 2
 
 redis:
   enabled: true
@@ -33,15 +56,98 @@ applicationSet:
 notifications:
   enabled: false
 
-dex:
-  enabled: ${enable_dex}
-
 configs:
   params:
     server.insecure: true
+    server.dex.server.strict.tls: "false"
+    reposerver.parallelism.limit: 5
+
+  rbac:
+    policy.default: ''
+    scopes: '[groups]'
+    policy.csv: |
+      g, awsgf-admins, role:admin
+      g, awsgf-developers, role:readonly
 
   cm:
     kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
+    url: https://${argocd_domain}
+    timeout.reconciliation: 15s
+
+    resource.exclusions: |
+      - apiGroups:
+        - ''
+        - discovery.k8s.io
+        kinds:
+        - Endpoints
+        - EndpointSlice
+      - apiGroups:
+        - coordination.k8s.io
+        kinds:
+        - Lease
+      - apiGroups:
+        - authentication.k8s.io
+        - authorization.k8s.io
+        kinds:
+        - SelfSubjectReview
+        - TokenReview
+        - LocalSubjectAccessReview
+        - SelfSubjectAccessReview
+        - SelfSubjectRulesReview
+        - SubjectAccessReview
+      - apiGroups:
+        - certificates.k8s.io
+        kinds:
+        - CertificateSigningRequest
+      - apiGroups:
+        - cert-manager.io
+        kinds:
+        - CertificateRequest
+
+%{ if enable_dex ~}
+    dex.config: |
+        connectors:
+          - type: google
+            id: google
+            name: Google
+            config:
+              clientID: $argocd-dex-secrets:dex.google.clientID
+              clientSecret: $argocd-dex-secrets:dex.google.clientSecret
+              redirectURI: https://${argocd_domain}/api/dex/callback
+              hostedDomains:
+                - ${dex_hosted_domain}
+              serviceAccountFilePath: /etc/dex/google/googleAuth.json
+              adminEmail: ${dex_admin_email}
+              fetchTransitiveGroupMembership: true
+              groups:
+                - awsgf-admins
+                - awsgf-developers
+%{ endif ~}
+
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then
+          hs.status = obj.status.health.status
+          if obj.status.health.message ~= nil then
+            hs.message = obj.status.health.message
+          end
+        end
+      end
+      return hs
+
+    resource.customizations.health.karpenter.sh_NodePool: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "NodePool is active"
+      return hs
+    resource.customizations.health.karpenter.k8s.aws_EC2NodeClass: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "EC2NodeClass is active"
+      return hs
 
   credentialTemplates:
     github-conservice:

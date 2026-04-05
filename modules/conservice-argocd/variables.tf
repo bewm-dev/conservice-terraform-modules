@@ -64,6 +64,24 @@ variable "dex_google_sa_json" {
   sensitive   = true
 }
 
+variable "argocd_domain" {
+  description = "ArgoCD server domain (e.g. argocd.conservice.cloud)"
+  type        = string
+  default     = ""
+}
+
+variable "dex_admin_email" {
+  description = "Google Workspace admin email for Dex directory API"
+  type        = string
+  default     = ""
+}
+
+variable "dex_hosted_domain" {
+  description = "Google Workspace domain for Dex SSO"
+  type        = string
+  default     = ""
+}
+
 variable "bootstrap_cluster_path" {
   description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/plat-use1-mgmt)"
   type        = string
