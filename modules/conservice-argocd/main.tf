@@ -2,50 +2,23 @@
 # ArgoCD Bootstrap
 # -----------------------------------------------------------------------------
 #
-# Minimal ArgoCD install — just enough to connect to the Git repo and sync
-# the app-of-apps. ArgoCD self-manages from Git after the root Application
-# syncs, which provides the full config (Dex SSO, domain, RBAC, etc.)
+# Full ArgoCD install with Dex SSO config. Bootstrap secrets are created
+# before the Helm release so Dex pods can mount them on first start.
+# ArgoCD self-manages from Git after the root Application syncs.
 #
 # IAM (Pod Identity) is created externally in eks-mgmt/main.tf.
-# Dex SSO, Gateway API, and all addon config comes from the k8s-apps repo.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# ArgoCD Helm Release (bootstrap only)
+# Namespace + Bootstrap Secrets (BEFORE Helm install)
+# Dex pods mount these as volumes — they must exist before ArgoCD starts.
 # -----------------------------------------------------------------------------
 
-resource "helm_release" "argocd" {
-  name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  version    = var.chart_version
-  namespace  = var.namespace
-
-  create_namespace = true
-  wait             = true
-  timeout          = 600
-
-  values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
-    github_token      = var.github_token
-    github_org_url    = var.github_org_url
-    enable_dex        = var.enable_dex
-    argocd_domain     = var.argocd_domain
-    dex_admin_email   = var.dex_admin_email
-    dex_hosted_domain = var.dex_hosted_domain
-  })]
-
-  # After bootstrap, ArgoCD self-manages from Git.
-  # Ignore values so Terraform doesn't fight ArgoCD for control.
-  lifecycle {
-    ignore_changes = [values]
+resource "kubernetes_namespace" "argocd" {
+  metadata {
+    name = var.namespace
   }
 }
-
-# -----------------------------------------------------------------------------
-# Bootstrap Secrets — Dex SSO needs these on first boot (before ESO runs).
-# Terraform creates them from Secrets Manager at cluster build time.
-# ESO ExternalSecrets take over ongoing rotation after bootstrap.
-# -----------------------------------------------------------------------------
 
 resource "kubernetes_secret" "dex_oidc" {
   count = var.enable_dex ? 1 : 0
@@ -64,7 +37,7 @@ resource "kubernetes_secret" "dex_oidc" {
   }
 
   type       = "Opaque"
-  depends_on = [helm_release.argocd]
+  depends_on = [kubernetes_namespace.argocd]
 
   lifecycle {
     ignore_changes = [data]
@@ -84,10 +57,47 @@ resource "kubernetes_secret" "dex_google_groups" {
   }
 
   type       = "Opaque"
-  depends_on = [helm_release.argocd]
+  depends_on = [kubernetes_namespace.argocd]
 
   lifecycle {
     ignore_changes = [data]
+  }
+}
+
+# -----------------------------------------------------------------------------
+# ArgoCD Helm Release
+# -----------------------------------------------------------------------------
+
+resource "helm_release" "argocd" {
+  name       = "argocd"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  version    = var.chart_version
+  namespace  = var.namespace
+
+  create_namespace = false
+  wait             = true
+  timeout          = 600
+
+  values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
+    github_token      = var.github_token
+    github_org_url    = var.github_org_url
+    enable_dex        = var.enable_dex
+    argocd_domain     = var.argocd_domain
+    dex_admin_email   = var.dex_admin_email
+    dex_hosted_domain = var.dex_hosted_domain
+  })]
+
+  depends_on = [
+    kubernetes_namespace.argocd,
+    kubernetes_secret.dex_oidc,
+    kubernetes_secret.dex_google_groups,
+  ]
+
+  # After bootstrap, ArgoCD self-manages from Git.
+  # Ignore values so Terraform doesn't fight ArgoCD for control.
+  lifecycle {
+    ignore_changes = [values]
   }
 }
 
@@ -122,9 +132,6 @@ resource "kubectl_manifest" "project_platform_addons" {
           kind  = "*"
         },
       ]
-      # Orphan monitoring disabled — the argocd namespace contains resources
-      # not owned by the self-manage app (ESO-synced secrets, Application CRs
-      # from root app). These are expected and not true orphans.
     }
   })
 }
