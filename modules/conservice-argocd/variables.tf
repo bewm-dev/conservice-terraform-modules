@@ -43,6 +43,27 @@ variable "enable_dex" {
   default     = true
 }
 
+variable "dex_google_client_id" {
+  description = "Google OAuth client ID for Dex SSO"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "dex_google_client_secret" {
+  description = "Google OAuth client secret for Dex SSO"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "dex_google_sa_json" {
+  description = "Google service account JSON for Dex directory API group lookup"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "bootstrap_cluster_path" {
   description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/plat-use1-mgmt)"
   type        = string

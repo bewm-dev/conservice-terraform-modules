@@ -39,6 +39,56 @@ resource "helm_release" "argocd" {
 }
 
 # -----------------------------------------------------------------------------
+# Bootstrap Secrets — Dex SSO needs these on first boot (before ESO runs).
+# Terraform creates them from Secrets Manager at cluster build time.
+# ESO ExternalSecrets take over ongoing rotation after bootstrap.
+# -----------------------------------------------------------------------------
+
+resource "kubernetes_secret" "dex_oidc" {
+  count = var.enable_dex ? 1 : 0
+
+  metadata {
+    name      = "argocd-dex-secrets"
+    namespace = var.namespace
+    labels = {
+      "app.kubernetes.io/part-of" = "argocd"
+    }
+  }
+
+  data = {
+    "dex.google.clientID"     = var.dex_google_client_id
+    "dex.google.clientSecret" = var.dex_google_client_secret
+  }
+
+  type       = "Opaque"
+  depends_on = [helm_release.argocd]
+
+  lifecycle {
+    ignore_changes = [data]
+  }
+}
+
+resource "kubernetes_secret" "dex_google_groups" {
+  count = var.enable_dex ? 1 : 0
+
+  metadata {
+    name      = "dex-google-groups"
+    namespace = var.namespace
+  }
+
+  data = {
+    "googleAuth.json" = var.dex_google_sa_json
+  }
+
+  type       = "Opaque"
+  depends_on = [helm_release.argocd]
+
+  lifecycle {
+    ignore_changes = [data]
+  }
+}
+
+# -----------------------------------------------------------------------------
 # AppProject: platform-addons
 # -----------------------------------------------------------------------------
 
