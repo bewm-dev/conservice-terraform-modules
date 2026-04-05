@@ -630,12 +630,13 @@ data "aws_eks_addon_version" "container_insights" {
   count = var.enable_container_insights ? 1 : 0
 
   addon_name         = "amazon-cloudwatch-observability"
-  kubernetes_version = data.aws_eks_cluster.this.version
+  kubernetes_version = data.aws_eks_cluster.this[0].version
   most_recent        = true
 }
 
 data "aws_eks_cluster" "this" {
-  name = var.cluster_name
+  count = var.enable_container_insights ? 1 : 0
+  name  = var.cluster_name
 }
 
 resource "aws_eks_addon" "container_insights" {
