@@ -38,16 +38,14 @@ variable "bgp_asn" {
 }
 
 variable "tunnel1_psk" {
-  description = "Pre-shared key for tunnel 1. Use ephemeral values from Secrets Manager."
+  description = "Pre-shared key for tunnel 1. Sensitive — will be in state (encrypted). AWS provider does not support write-only for VPN PSKs yet."
   type        = string
-  ephemeral   = true
   sensitive   = true
 }
 
 variable "tunnel2_psk" {
-  description = "Pre-shared key for tunnel 2. Use ephemeral values from Secrets Manager."
+  description = "Pre-shared key for tunnel 2. Sensitive — will be in state (encrypted). AWS provider does not support write-only for VPN PSKs yet."
   type        = string
-  ephemeral   = true
   sensitive   = true
 }
 
