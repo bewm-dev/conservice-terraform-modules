@@ -2,6 +2,11 @@
 # Conservice Account Base — Variables
 # -----------------------------------------------------------------------------
 
+variable "project" {
+  description = "Project name for resource naming"
+  type        = string
+}
+
 variable "resource_prefix" {
   description = "Abbreviated prefix for workload resource names"
   type        = string

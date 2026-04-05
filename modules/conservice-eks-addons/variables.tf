@@ -30,6 +30,12 @@ variable "aws_account_id" {
 variable "node_role_arn" {
   description = "ARN of the EKS node IAM role (used for Karpenter iam:PassRole)"
   type        = string
+  default     = ""
+
+  validation {
+    condition     = !var.enable_karpenter || var.node_role_arn != ""
+    error_message = "node_role_arn is required when enable_karpenter is true."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -57,7 +63,7 @@ variable "enable_eso" {
 variable "enable_karpenter" {
   description = "Enable Karpenter resources"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_container_insights" {
@@ -71,7 +77,12 @@ variable "enable_container_insights" {
 # -----------------------------------------------------------------------------
 
 variable "route53_zone_ids" {
-  description = "List of Route53 hosted zone IDs to scope External DNS access (empty = all zones)"
+  description = "List of Route53 hosted zone IDs to scope External DNS access. Required when enable_external_dns is true."
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = !var.enable_external_dns || length(var.route53_zone_ids) > 0
+    error_message = "route53_zone_ids must not be empty when enable_external_dns is true."
+  }
 }

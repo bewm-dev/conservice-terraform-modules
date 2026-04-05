@@ -3,11 +3,6 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "env" {
-  description = "Environment name"
-  type        = string
-}
-
 variable "github_org_url" {
   description = "GitHub organization URL for ArgoCD repo server"
   type        = string

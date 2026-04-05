@@ -88,8 +88,8 @@ data "aws_iam_policy_document" "tf_execution" {
       "s3:ListBucket",
     ]
     resources = [
-      "arn:aws:s3:::conservice-tf-state-${var.env}",
-      "arn:aws:s3:::conservice-tf-state-${var.env}/*",
+      "arn:aws:s3:::${var.project}-tf-state-${var.env}",
+      "arn:aws:s3:::${var.project}-tf-state-${var.env}/*",
     ]
   }
 
@@ -221,7 +221,7 @@ data "aws_iam_policy_document" "ecr_pull" {
       "ecr:DescribeRepositories",
       "ecr:ListImages",
     ]
-    resources = ["arn:aws:ecr:*:*:repository/conservice-*"]
+    resources = ["arn:aws:ecr:*:*:repository/${var.project}-*"]
   }
 
   statement {
@@ -283,8 +283,8 @@ data "aws_iam_policy_document" "aurora" {
       "s3:DeleteObject",
     ]
     resources = [
-      "arn:aws:s3:::conservice-${var.env}-aurora-*",
-      "arn:aws:s3:::conservice-${var.env}-aurora-*/*",
+      "arn:aws:s3:::${var.project}-${var.env}-aurora-*",
+      "arn:aws:s3:::${var.project}-${var.env}-aurora-*/*",
     ]
   }
 

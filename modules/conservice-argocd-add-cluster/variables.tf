@@ -3,11 +3,6 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "env" {
-  description = "Environment name"
-  type        = string
-}
-
 variable "cluster_secret_name" {
   description = "Short name for the ArgoCD cluster secret (e.g. prod-workload)"
   type        = string
