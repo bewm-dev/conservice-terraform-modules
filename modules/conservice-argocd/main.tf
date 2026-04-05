@@ -69,9 +69,9 @@ resource "kubectl_manifest" "project_platform_addons" {
           kind  = "*"
         },
       ]
-      orphanedResources = {
-        warn = true
-      }
+      # Orphan monitoring disabled — the argocd namespace contains resources
+      # not owned by the self-manage app (ESO-synced secrets, Application CRs
+      # from root app). These are expected and not true orphans.
     }
   })
 }
