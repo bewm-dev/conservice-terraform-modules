@@ -6,7 +6,7 @@
 #
 # This module connects to a shared Aurora cluster using master credentials
 # and creates app-scoped resources inside it. The cluster itself is
-# provisioned by the platform aws-aurora module.
+# provisioned by terraform-aws-modules/rds-aurora/aws in the account configs.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------

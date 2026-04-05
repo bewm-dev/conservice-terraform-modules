@@ -1,20 +1,24 @@
 # Module Refactor Spec
 
-Status: Modules complete, account config refactor next (Apr 1, 2026)
+Status: Community module adoption complete, superseded modules deleted (Apr 5, 2026)
 
 ## Context
 
-The `conservice-aws-platform` account configs have ~1,900 lines of duplicated code across tools/dev/staging/prod. The same IAM roles, security groups, Pod Identity policies, and Karpenter configs are copy-pasted with minor variable substitutions.
-
-We're refactoring into **capability-based modules** that group resources by platform function, not AWS service. Each module is self-contained — you get everything needed for that capability in one module call.
+The `conservice-aws-platform` account configs originally used custom wrapper modules for VPC, EKS, and Aurora. These were replaced by community `terraform-aws-modules/*` during the full community module adoption (commit `3b247fc`). Custom modules are retained only where community modules don't cover our patterns.
 
 ## Completed
 
-- [x] Merged `aws-eks` + `aws-eks-cluster` into single `aws-eks-cluster` module (parameterized access type)
 - [x] Built `conservice-account-base` module — per-account baseline IAM (TF execution, EKS, ECR, Aurora roles)
-- [x] Built `conservice-vpc-network` module — spoke VPC + SGs + TGW connectivity
-- [x] Built `conservice-eks-cluster` module — KMS + EKS cluster wrapper
 - [x] Built `conservice-eks-addons` module — Pod Identity roles for LBC, ExternalDNS, ESO, Karpenter + SQS/EventBridge
+- [x] Account configs refactored to use community modules directly
+
+## Deleted (superseded by community modules)
+
+- `aws-vpc` — replaced by `terraform-aws-modules/vpc/aws` + vpc-endpoints submodule
+- `aws-eks-cluster` — replaced by `terraform-aws-modules/eks/aws`
+- `aws-aurora` — replaced by `terraform-aws-modules/rds-aurora/aws`
+- `conservice-eks-cluster` — wrapper around aws-eks-cluster, never adopted in account configs
+- `conservice-vpc-network` — wrapped aws-vpc + SGs + TGW; account configs now use community VPC + inline SGs
 
 ## Next: Account Config Refactor
 
