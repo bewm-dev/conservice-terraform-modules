@@ -31,7 +31,6 @@ module "vpc" {
   aws_region              = var.aws_region
   vpc_cidr                = var.vpc_cidr
   azs                     = var.azs
-  cluster_name            = var.cluster_name
   single_nat_gateway      = var.single_nat_gateway
   enable_flow_logs        = var.enable_flow_logs
   flow_log_retention      = var.flow_log_retention
