@@ -126,18 +126,38 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["*"]
   }
 
-  # EC2 security group management
+  # EC2 security group creation (scoped by request tag)
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:CreateSecurityGroup",
+      "ec2:CreateTags",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
+      values   = [var.cluster_name]
+    }
+  }
+
+  # EC2 security group modification (scoped by resource tag)
   statement {
     effect = "Allow"
     actions = [
       "ec2:AuthorizeSecurityGroupIngress",
       "ec2:RevokeSecurityGroupIngress",
-      "ec2:CreateSecurityGroup",
       "ec2:DeleteSecurityGroup",
-      "ec2:CreateTags",
       "ec2:DeleteTags",
     ]
     resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = [var.cluster_name]
+    }
   }
 
   # ELB create with tag condition
@@ -170,7 +190,7 @@ data "aws_iam_policy_document" "lbc" {
     ]
   }
 
-  # ELB modify and delete actions
+  # ELB modify and delete actions (scoped by resource tag)
   statement {
     effect = "Allow"
     actions = [
@@ -184,6 +204,12 @@ data "aws_iam_policy_document" "lbc" {
       "elasticloadbalancing:DeleteTargetGroup",
     ]
     resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = [var.cluster_name]
+    }
   }
 
   # ELB target registration scoped to target groups
@@ -196,7 +222,7 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"]
   }
 
-  # ELB listener/rule management + WAF
+  # ELB listener/rule management (scoped to LBC-managed resources)
   statement {
     effect = "Allow"
     actions = [
@@ -209,6 +235,12 @@ data "aws_iam_policy_document" "lbc" {
       "elasticloadbalancing:SetWebAcl",
     ]
     resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = [var.cluster_name]
+    }
   }
 }
 
@@ -379,13 +411,10 @@ resource "aws_eks_pod_identity_association" "karpenter" {
 data "aws_iam_policy_document" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
-  # EC2 provisioning
+  # EC2 read-only (no resource-level scoping needed)
   statement {
     effect = "Allow"
     actions = [
-      "ec2:CreateLaunchTemplate",
-      "ec2:CreateFleet",
-      "ec2:CreateTags",
       "ec2:DescribeLaunchTemplates",
       "ec2:DescribeImages",
       "ec2:DescribeInstances",
@@ -395,11 +424,42 @@ data "aws_iam_policy_document" "karpenter" {
       "ec2:DescribeInstanceTypeOfferings",
       "ec2:DescribeAvailabilityZones",
       "ec2:DescribeSpotPriceHistory",
+    ]
+    resources = ["*"]
+  }
+
+  # EC2 provisioning — create with Karpenter tag condition
+  statement {
+    effect = "Allow"
+    actions = [
       "ec2:RunInstances",
+      "ec2:CreateFleet",
+      "ec2:CreateLaunchTemplate",
+      "ec2:CreateTags",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringLike"
+      variable = "aws:RequestTag/karpenter.sh/nodepool"
+      values   = ["*"]
+    }
+  }
+
+  # EC2 termination — scoped to Karpenter-managed resources
+  statement {
+    effect = "Allow"
+    actions = [
       "ec2:TerminateInstances",
       "ec2:DeleteLaunchTemplate",
     ]
     resources = ["*"]
+
+    condition {
+      test     = "StringLike"
+      variable = "aws:ResourceTag/karpenter.sh/nodepool"
+      values   = ["*"]
+    }
   }
 
   # PassRole to node role
@@ -566,11 +626,24 @@ resource "aws_eks_pod_identity_association" "container_insights" {
   role_arn        = aws_iam_role.container_insights[0].arn
 }
 
+data "aws_eks_addon_version" "container_insights" {
+  count = var.enable_container_insights ? 1 : 0
+
+  addon_name         = "amazon-cloudwatch-observability"
+  kubernetes_version = data.aws_eks_cluster.this.version
+  most_recent        = true
+}
+
+data "aws_eks_cluster" "this" {
+  name = var.cluster_name
+}
+
 resource "aws_eks_addon" "container_insights" {
   count = var.enable_container_insights ? 1 : 0
 
-  cluster_name = var.cluster_name
-  addon_name   = "amazon-cloudwatch-observability"
+  cluster_name  = var.cluster_name
+  addon_name    = "amazon-cloudwatch-observability"
+  addon_version = data.aws_eks_addon_version.container_insights[0].version
 
   tags = { Name = "${var.cluster_name}-container-insights" }
 }
