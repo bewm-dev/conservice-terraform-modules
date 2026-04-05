@@ -126,13 +126,19 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["*"]
   }
 
-  # EC2 security group creation (scoped by request tag)
+  # EC2 security group creation
+  # Gateway API path calls CreateSecurityGroup without TagSpecifications,
+  # so we can't use aws:RequestTag. Deletion is still scoped by resource tag.
   statement {
-    effect = "Allow"
-    actions = [
-      "ec2:CreateSecurityGroup",
-      "ec2:CreateTags",
-    ]
+    effect    = "Allow"
+    actions   = ["ec2:CreateSecurityGroup"]
+    resources = ["*"]
+  }
+
+  # EC2 tag creation (scoped by request tag)
+  statement {
+    effect    = "Allow"
+    actions   = ["ec2:CreateTags"]
     resources = ["*"]
 
     condition {
