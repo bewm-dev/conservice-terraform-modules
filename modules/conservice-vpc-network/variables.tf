@@ -12,6 +12,11 @@ variable "env" {
   }
 }
 
+variable "resource_prefix" {
+  description = "Abbreviated prefix for workload resource names"
+  type        = string
+}
+
 variable "project" {
   description = "Project name for tagging"
   type        = string
@@ -83,7 +88,7 @@ variable "interface_vpc_endpoints" {
 variable "internal_prefix_list_id" {
   description = "ID of the shared managed prefix list for internal CIDRs. If set, security groups use this instead of hardcoded CIDRs."
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "create_eks_sg" {

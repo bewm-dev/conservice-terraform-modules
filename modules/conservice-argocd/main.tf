@@ -26,7 +26,9 @@ resource "helm_release" "argocd" {
   timeout          = 600
 
   values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
-    github_token = var.github_token
+    github_token   = var.github_token
+    github_org_url = var.github_org_url
+    enable_dex     = var.enable_dex
   })]
 
   # After bootstrap, ArgoCD self-manages from Git.

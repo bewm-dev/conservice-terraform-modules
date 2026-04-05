@@ -16,7 +16,7 @@ locals {
     "ap-southeast-1" = "apse1"
   }
   region_code = local.region_codes[var.aws_region]
-  name_prefix = "csvc-${var.env}-${local.region_code}"
+  name_prefix = "${var.resource_prefix}-${var.env}-${local.region_code}"
 }
 
 # -----------------------------------------------------------------------------
@@ -27,6 +27,7 @@ module "vpc" {
   source = "../aws-vpc"
 
   env                     = var.env
+  resource_prefix         = var.resource_prefix
   project                 = var.project
   aws_region              = var.aws_region
   vpc_cidr                = var.vpc_cidr
@@ -123,7 +124,7 @@ resource "aws_vpc_security_group_ingress_rule" "eks_https_from_vpc" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "eks_https_from_internal" {
-  count = var.create_eks_sg ? 1 : 0
+  count = var.create_eks_sg && var.internal_prefix_list_id != null ? 1 : 0
 
   security_group_id = aws_security_group.eks_cluster_additional[0].id
   description       = "HTTPS from internal CIDRs (cross-account via TGW)"
@@ -200,6 +201,8 @@ resource "aws_vpc_security_group_ingress_rule" "internal_from_vpc" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "internal_from_prefix_list" {
+  count = var.internal_prefix_list_id != null ? 1 : 0
+
   security_group_id = aws_security_group.internal.id
   description       = "All traffic from internal CIDRs (cross-account via TGW)"
   prefix_list_id    = var.internal_prefix_list_id

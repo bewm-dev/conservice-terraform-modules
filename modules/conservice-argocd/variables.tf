@@ -3,6 +3,16 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "env" {
+  description = "Environment name"
+  type        = string
+}
+
+variable "github_org_url" {
+  description = "GitHub organization URL for ArgoCD repo server"
+  type        = string
+}
+
 variable "chart_version" {
   description = "ArgoCD Helm chart version"
   type        = string
@@ -25,13 +35,18 @@ variable "github_token" {
 variable "repo_url" {
   description = "Git repository URL for conservice-k8s-apps"
   type        = string
-  default     = "https://github.com/shawnpetersen/conservice-k8s-apps.git"
 }
 
 variable "repo_target_revision" {
   description = "Git branch/tag to track for the root Application"
   type        = string
   default     = "main"
+}
+
+variable "enable_dex" {
+  description = "Enable Dex OIDC for Google SSO login"
+  type        = bool
+  default     = true
 }
 
 variable "bootstrap_cluster_path" {

@@ -56,12 +56,6 @@ variable "env" {
   }
 }
 
-variable "project" {
-  description = "Project name for resource tagging"
-  type        = string
-  default     = "conservice"
-}
-
 # -----------------------------------------------------------------------------
 # Preset System
 # -----------------------------------------------------------------------------

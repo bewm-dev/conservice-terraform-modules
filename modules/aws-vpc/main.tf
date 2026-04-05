@@ -19,7 +19,7 @@ locals {
     "ap-southeast-1" = "apse1"
   }
   region_code = local.region_codes[var.aws_region]
-  name_prefix = "csvc-${var.env}-${local.region_code}"
+  name_prefix = "${var.resource_prefix}-${var.env}-${local.region_code}"
   az_count    = length(var.azs)
   vpc_bits    = tonumber(split("/", var.vpc_cidr)[1])
 
@@ -98,8 +98,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name                     = "${local.name_prefix}-public-${each.key}"
-    "kubernetes.io/role/elb" = "1"
+    Name = "${local.name_prefix}-public-${each.key}"
   })
 }
 
@@ -166,8 +165,7 @@ resource "aws_subnet" "private_app" {
   availability_zone = each.value.az
 
   tags = merge(var.tags, {
-    Name                              = "${local.name_prefix}-private-app-${each.key}"
-    "kubernetes.io/role/internal-elb" = "1"
+    Name = "${local.name_prefix}-private-app-${each.key}"
   })
 }
 
@@ -317,7 +315,10 @@ resource "aws_iam_role_policy" "flow_log" {
         "logs:DescribeLogGroups",
         "logs:DescribeLogStreams",
       ]
-      Resource = "*"
+      Resource = [
+        aws_cloudwatch_log_group.flow_log[0].arn,
+        "${aws_cloudwatch_log_group.flow_log[0].arn}:*",
+      ]
     }]
   })
 }

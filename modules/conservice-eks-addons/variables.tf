@@ -20,6 +20,11 @@ variable "env" {
 variable "aws_account_id" {
   description = "AWS account ID for resource ARN construction"
   type        = string
+
+  validation {
+    condition     = can(regex("^\\d{12}$", var.aws_account_id))
+    error_message = "aws_account_id must be a 12-digit number"
+  }
 }
 
 variable "node_role_arn" {

@@ -34,7 +34,7 @@ notifications:
   enabled: false
 
 dex:
-  enabled: false
+  enabled: ${enable_dex}
 
 configs:
   params:
@@ -45,6 +45,6 @@ configs:
 
   credentialTemplates:
     github-conservice:
-      url: https://github.com/shawnpetersen
+      url: ${github_org_url}
       password: "${github_token}"
       username: x-access-token

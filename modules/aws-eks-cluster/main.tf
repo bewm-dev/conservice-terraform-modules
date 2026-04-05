@@ -45,6 +45,10 @@ resource "aws_eks_cluster" "this" {
   tags = merge(var.tags, {
     Name = var.cluster_name
   })
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -----------------------------------------------------------------------------

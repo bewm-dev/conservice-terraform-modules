@@ -47,6 +47,11 @@ variable "public_access_cidrs" {
   description = "CIDR blocks allowed to access the public API endpoint. Only applies when endpoint_public_access is true."
   type        = list(string)
   default     = [] # Empty = no public access. Must be explicitly set per cluster.
+
+  validation {
+    condition     = !var.endpoint_public_access || length(var.public_access_cidrs) > 0
+    error_message = "public_access_cidrs must not be empty when endpoint_public_access is true."
+  }
 }
 
 variable "additional_security_group_ids" {

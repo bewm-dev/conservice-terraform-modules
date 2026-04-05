@@ -2,14 +2,29 @@
 # Conservice Account Base — Variables
 # -----------------------------------------------------------------------------
 
-variable "env" {
-  description = "Environment name (dev, staging, prod, tools)"
+variable "resource_prefix" {
+  description = "Abbreviated prefix for workload resource names"
   type        = string
+}
+
+variable "env" {
+  description = "Environment name"
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "stg", "prod", "plat", "org", "security", "log-archive"], var.env)
+    error_message = "env must be one of: dev, stg, prod, plat, org, security, log-archive"
+  }
 }
 
 variable "aws_account_id" {
   description = "AWS account ID for this account"
   type        = string
+
+  validation {
+    condition     = can(regex("^\\d{12}$", var.aws_account_id))
+    error_message = "aws_account_id must be a 12-digit number"
+  }
 }
 
 variable "platform_account_id" {

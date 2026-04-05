@@ -3,6 +3,11 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "env" {
+  description = "Environment name"
+  type        = string
+}
+
 variable "cluster_secret_name" {
   description = "Short name for the ArgoCD cluster secret (e.g. prod-workload)"
   type        = string
@@ -27,7 +32,6 @@ variable "argocd_role_arn" {
 variable "repo_url" {
   description = "Git repository URL for conservice-k8s-apps"
   type        = string
-  default     = "https://github.com/shawnpetersen/conservice-k8s-apps.git"
 }
 
 variable "repo_target_revision" {

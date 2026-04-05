@@ -31,10 +31,14 @@ variable "aws_region" {
 # Optional Variables
 # -----------------------------------------------------------------------------
 
+variable "resource_prefix" {
+  description = "Abbreviated prefix for workload resource names"
+  type        = string
+}
+
 variable "project" {
   description = "Project name for tagging"
   type        = string
-  default     = "conservice"
 }
 
 variable "tags" {
