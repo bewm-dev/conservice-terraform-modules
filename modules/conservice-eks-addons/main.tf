@@ -69,31 +69,37 @@ data "aws_iam_policy_document" "lbc" {
   }
 
   # EC2 + ELB describe permissions
+  # Read-only: EC2 + ELB discovery
   statement {
     effect = "Allow"
     actions = [
       "ec2:DescribeAccountAttributes",
       "ec2:DescribeAddresses",
       "ec2:DescribeAvailabilityZones",
-      "ec2:DescribeInternetGateways",
-      "ec2:DescribeVpcs",
-      "ec2:DescribeVpcPeeringConnections",
-      "ec2:DescribeSubnets",
-      "ec2:DescribeSecurityGroups",
-      "ec2:DescribeInstances",
-      "ec2:DescribeNetworkInterfaces",
-      "ec2:DescribeTags",
       "ec2:DescribeCoipPools",
-      "ec2:GetCoipPoolUsage",
+      "ec2:DescribeInstances",
       "ec2:DescribeInstanceTypes",
-      "elasticloadbalancing:DescribeLoadBalancers",
-      "elasticloadbalancing:DescribeLoadBalancerAttributes",
-      "elasticloadbalancing:DescribeListeners",
+      "ec2:DescribeInternetGateways",
+      "ec2:DescribeIpamPools",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeRouteTables",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeTags",
+      "ec2:DescribeVpcPeeringConnections",
+      "ec2:DescribeVpcs",
+      "ec2:GetCoipPoolUsage",
+      "ec2:GetSecurityGroupsForVpc",
+      "elasticloadbalancing:DescribeCapacityReservation",
+      "elasticloadbalancing:DescribeListenerAttributes",
       "elasticloadbalancing:DescribeListenerCertificates",
-      "elasticloadbalancing:DescribeSSLPolicies",
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeLoadBalancerAttributes",
+      "elasticloadbalancing:DescribeLoadBalancers",
       "elasticloadbalancing:DescribeRules",
-      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeSSLPolicies",
       "elasticloadbalancing:DescribeTargetGroupAttributes",
+      "elasticloadbalancing:DescribeTargetGroups",
       "elasticloadbalancing:DescribeTargetHealth",
       "elasticloadbalancing:DescribeTags",
       "elasticloadbalancing:DescribeTrustStores",
@@ -126,47 +132,72 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["*"]
   }
 
-  # EC2 security group creation
-  # Gateway API path calls CreateSecurityGroup without TagSpecifications,
-  # so we can't use aws:RequestTag. Deletion is still scoped by resource tag.
-  statement {
-    effect    = "Allow"
-    actions   = ["ec2:CreateSecurityGroup"]
-    resources = ["*"]
-  }
-
-  # EC2 tag creation (scoped by request tag)
-  statement {
-    effect    = "Allow"
-    actions   = ["ec2:CreateTags"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
-      values   = [var.cluster_name]
-    }
-  }
-
-  # EC2 security group modification (scoped by resource tag)
+  # EC2 security group — create + ingress/egress rules
   statement {
     effect = "Allow"
     actions = [
       "ec2:AuthorizeSecurityGroupIngress",
       "ec2:RevokeSecurityGroupIngress",
-      "ec2:DeleteSecurityGroup",
-      "ec2:DeleteTags",
+      "ec2:CreateSecurityGroup",
     ]
     resources = ["*"]
+  }
+
+  # EC2 tags on SG at creation (must have elbv2 cluster tag)
+  statement {
+    effect    = "Allow"
+    actions   = ["ec2:CreateTags"]
+    resources = ["arn:aws:ec2:*:*:security-group/*"]
 
     condition {
       test     = "StringEquals"
-      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
-      values   = [var.cluster_name]
+      variable = "ec2:CreateAction"
+      values   = ["CreateSecurityGroup"]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
     }
   }
 
-  # ELB create with tag condition
+  # EC2 tags on existing SGs (must already have elbv2 cluster tag)
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:CreateTags",
+      "ec2:DeleteTags",
+    ]
+    resources = ["arn:aws:ec2:*:*:security-group/*"]
+
+    condition {
+      test     = "Null"
+      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
+      values   = ["true"]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
+    }
+  }
+
+  # EC2 SG delete (scoped by resource tag)
+  statement {
+    effect    = "Allow"
+    actions   = ["ec2:DeleteSecurityGroup"]
+    resources = ["*"]
+
+    condition {
+      test     = "Null"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
+    }
+  }
+
+  # ELB create (must tag with elbv2 cluster tag)
   statement {
     effect = "Allow"
     actions = [
@@ -176,13 +207,50 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["*"]
 
     condition {
-      test     = "StringEquals"
+      test     = "Null"
       variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
-      values   = [var.cluster_name]
+      values   = ["false"]
     }
   }
 
-  # ELB tagging scoped to specific resource types
+  # ELB listener/rule create+delete (no tag condition — these inherit from LB)
+  statement {
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:CreateListener",
+      "elasticloadbalancing:DeleteListener",
+      "elasticloadbalancing:CreateRule",
+      "elasticloadbalancing:DeleteRule",
+    ]
+    resources = ["*"]
+  }
+
+  # ELB tags on LB/TG at creation
+  statement {
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:AddTags",
+    ]
+    resources = [
+      "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
+      "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+      "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "elasticloadbalancing:CreateAction"
+      values   = ["CreateTargetGroup", "CreateLoadBalancer"]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
+    }
+  }
+
+  # ELB tags on existing LB/TG (must already have elbv2 tag)
   statement {
     effect = "Allow"
     actions = [
@@ -194,9 +262,36 @@ data "aws_iam_policy_document" "lbc" {
       "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
       "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*",
     ]
+
+    condition {
+      test     = "Null"
+      variable = "aws:RequestTag/elbv2.k8s.aws/cluster"
+      values   = ["true"]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
+    }
   }
 
-  # ELB modify and delete actions (scoped by resource tag)
+  # ELB tags on listeners/rules (no tag condition — inherits from LB)
+  statement {
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:RemoveTags",
+    ]
+    resources = [
+      "arn:aws:elasticloadbalancing:*:*:listener/net/*/*/*",
+      "arn:aws:elasticloadbalancing:*:*:listener/app/*/*/*",
+      "arn:aws:elasticloadbalancing:*:*:listener-rule/net/*/*/*",
+      "arn:aws:elasticloadbalancing:*:*:listener-rule/app/*/*/*",
+    ]
+  }
+
+  # ELB modify/delete (scoped by resource tag)
   statement {
     effect = "Allow"
     actions = [
@@ -208,17 +303,19 @@ data "aws_iam_policy_document" "lbc" {
       "elasticloadbalancing:ModifyTargetGroup",
       "elasticloadbalancing:ModifyTargetGroupAttributes",
       "elasticloadbalancing:DeleteTargetGroup",
+      "elasticloadbalancing:ModifyListenerAttributes",
+      "elasticloadbalancing:ModifyCapacityReservation",
     ]
     resources = ["*"]
 
     condition {
-      test     = "StringEquals"
+      test     = "Null"
       variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
-      values   = [var.cluster_name]
+      values   = ["false"]
     }
   }
 
-  # ELB target registration scoped to target groups
+  # ELB target registration
   statement {
     effect = "Allow"
     actions = [
@@ -228,25 +325,18 @@ data "aws_iam_policy_document" "lbc" {
     resources = ["arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"]
   }
 
-  # ELB listener/rule management (scoped to LBC-managed resources)
+  # ELB listener/rule modification + WAF
   statement {
     effect = "Allow"
     actions = [
-      "elasticloadbalancing:CreateListener",
-      "elasticloadbalancing:DeleteListener",
-      "elasticloadbalancing:CreateRule",
-      "elasticloadbalancing:DeleteRule",
-      "elasticloadbalancing:ModifyListener",
-      "elasticloadbalancing:ModifyRule",
       "elasticloadbalancing:SetWebAcl",
+      "elasticloadbalancing:ModifyListener",
+      "elasticloadbalancing:AddListenerCertificates",
+      "elasticloadbalancing:RemoveListenerCertificates",
+      "elasticloadbalancing:ModifyRule",
+      "elasticloadbalancing:SetRulePriorities",
     ]
     resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
-      values   = [var.cluster_name]
-    }
   }
 }
 
