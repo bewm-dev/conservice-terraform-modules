@@ -21,9 +21,8 @@ variable "namespace" {
 }
 
 variable "github_token" {
-  description = "GitHub PAT for repo access (from Secrets Manager via ephemeral)"
+  description = "GitHub PAT for repo access. Sensitive — stored in Helm values in state (encrypted)."
   type        = string
-  ephemeral   = true
   sensitive   = true
 }
 
