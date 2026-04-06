@@ -24,8 +24,9 @@ locals {
     "us-west-1" = "usw1"
     "us-west-2" = "usw2"
   }
-  region_code = local.region_codes[var.region]
-  name_prefix = "csvc-${var.env}-${local.region_code}-${var.app_name}"
+  region_code      = local.region_codes[var.region]
+  name_prefix      = "csvc-${var.env}-${local.region_code}-${var.app_name}"
+  app_role_prefix  = "csvc-${var.env}-${local.region_code}-app-${var.app_name}"
 
   # ---------------------------------------------------------------------------
   # YAML config reading — single file + optional env override
@@ -316,24 +317,24 @@ data "aws_iam_policy_document" "pod_identity" {
 resource "aws_iam_role" "pod_identity" {
   count = local.create_pod_identity ? 1 : 0
 
-  name               = "${local.name_prefix}-pod-role"
+  name               = "${local.app_role_prefix}-pod-role"
   path               = "/apps/"
   assume_role_policy = data.aws_iam_policy_document.pod_identity_trust[0].json
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-pod-role"
+    Name = "${local.app_role_prefix}-pod-role"
   })
 }
 
 resource "aws_iam_policy" "pod_identity" {
   count = local.create_pod_identity ? 1 : 0
 
-  name   = "${local.name_prefix}-pod-policy"
+  name   = "${local.app_role_prefix}-pod-policy"
   path   = "/apps/"
   policy = data.aws_iam_policy_document.pod_identity[0].json
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-pod-policy"
+    Name = "${local.app_role_prefix}-pod-policy"
   })
 }
 
@@ -508,8 +509,8 @@ data "aws_iam_policy_document" "ci" {
       "iam:PassRole",
     ]
     resources = [
-      "arn:aws:iam::${var.aws_account_id}:role/apps/${local.name_prefix}-*",
-      "arn:aws:iam::${var.aws_account_id}:policy/apps/${local.name_prefix}-*",
+      "arn:aws:iam::${var.aws_account_id}:role/apps/${local.app_role_prefix}-*",
+      "arn:aws:iam::${var.aws_account_id}:policy/apps/${local.app_role_prefix}-*",
     ]
   }
 }
@@ -517,24 +518,24 @@ data "aws_iam_policy_document" "ci" {
 resource "aws_iam_role" "ci" {
   count = local.create_ci_role ? 1 : 0
 
-  name               = "${local.name_prefix}-ci-role"
+  name               = "${local.app_role_prefix}-ci-role"
   path               = "/apps/"
   assume_role_policy = data.aws_iam_policy_document.ci_trust[0].json
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-ci-role"
+    Name = "${local.app_role_prefix}-ci-role"
   })
 }
 
 resource "aws_iam_policy" "ci" {
   count = local.create_ci_role ? 1 : 0
 
-  name   = "${local.name_prefix}-ci-policy"
+  name   = "${local.app_role_prefix}-ci-policy"
   path   = "/apps/"
   policy = data.aws_iam_policy_document.ci[0].json
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-ci-policy"
+    Name = "${local.app_role_prefix}-ci-policy"
   })
 }
 
