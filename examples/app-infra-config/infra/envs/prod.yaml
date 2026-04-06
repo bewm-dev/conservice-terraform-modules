@@ -1,9 +1,12 @@
-# Prod environment overrides.
-# Only include what's DIFFERENT from the defaults.
-# Prod typically has fewer admin users and no readonly users.
+# =============================================================================
+# Production Environment Overrides
+#
+# Values here override infra.yaml for the prod environment only.
+# Only include sections you need to override — everything else
+# uses the defaults from infra.yaml.
+# =============================================================================
 
-databases:
-  billing_events:
-    admin_users:
-      - shawnpetersen
-    connection_limit: 100
+# Example: add admin access in prod only
+# databases:
+#   my_app:
+#     admin_users: [shawnpetersen, jane.smith]

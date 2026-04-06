@@ -1,15 +1,19 @@
 # -----------------------------------------------------------------------------
 # conservice-app-resources
 #
-# Provisions app-level AWS resources from YAML config. Dev teams edit YAML
-# files in their app repo's infra/ directory; this module + CI handles the rest.
+# Provisions app-level AWS resources from a single infra.yaml file.
+# Dev teams edit infra.yaml in their app repo; this module + CI handles the rest.
 #
-# Config merge (3 layers):
-#   1. infra/base.yaml          — team, domain, portfolio (required)
-#   2. infra/<resource>.yaml    — resource defaults (s3.yaml, sqs.yaml, etc.)
-#   3. infra/envs/<env>.yaml    — environment overrides (merged on top)
+# Config merge (2 layers):
+#   1. infra/infra.yaml         — all resource definitions (required)
+#   2. infra/envs/<env>.yaml    — environment overrides (optional, merged on top)
 #
-# Naming convention: csvc-{env}-{region_code}-{app_name}-{resource_key}-{type}
+# Naming:
+#   S3 buckets:  conservice-{env}-{app_name}-{key}  (global namespace)
+#   SQS queues:  csvc-{env}-{region_code}-{app_name}-{key}-queue
+#   SNS topics:  csvc-{env}-{region_code}-{app_name}-{key}-topic
+#   Secrets:     conservice-{env}-{app_name}-{key}
+#   Databases:   key becomes the database name in shared Aurora
 # -----------------------------------------------------------------------------
 
 locals {
@@ -24,37 +28,31 @@ locals {
   name_prefix = "csvc-${var.env}-${local.region_code}-${var.app_name}"
 
   # ---------------------------------------------------------------------------
-  # YAML config reading
+  # YAML config reading — single file + optional env override
   # ---------------------------------------------------------------------------
 
-  base = yamldecode(file("${var.config_path}/base.yaml"))
-
-  has_buckets   = fileexists("${var.config_path}/s3.yaml")
-  has_queues    = fileexists("${var.config_path}/sqs.yaml")
-  has_topics    = fileexists("${var.config_path}/sns.yaml")
-  has_databases = fileexists("${var.config_path}/database.yaml")
-
-  bucket_defaults   = local.has_buckets ? yamldecode(file("${var.config_path}/s3.yaml")) : {}
-  queue_defaults    = local.has_queues ? yamldecode(file("${var.config_path}/sqs.yaml")) : {}
-  topic_defaults    = local.has_topics ? yamldecode(file("${var.config_path}/sns.yaml")) : {}
-  database_defaults = local.has_databases ? yamldecode(file("${var.config_path}/database.yaml")) : {}
+  config = yamldecode(file("${var.config_path}/infra.yaml"))
 
   env_override_path = "${var.config_path}/envs/${var.env}.yaml"
   has_env_override  = fileexists(local.env_override_path)
   env_override      = local.has_env_override ? yamldecode(file(local.env_override_path)) : {}
 
-  # Merge: resource defaults ← env overrides (env wins)
-  buckets   = lookup(local.env_override, "buckets", lookup(local.bucket_defaults, "buckets", {}))
-  queues    = lookup(local.env_override, "queues", lookup(local.queue_defaults, "queues", {}))
-  topics    = lookup(local.env_override, "topics", lookup(local.topic_defaults, "topics", {}))
-  databases = lookup(local.env_override, "databases", lookup(local.database_defaults, "databases", {}))
+  # Merge: infra.yaml defaults ← env override (env wins for each resource type)
+  buckets   = lookup(local.env_override, "buckets", lookup(local.config, "buckets", {}))
+  queues    = lookup(local.env_override, "queues", lookup(local.config, "queues", {}))
+  topics    = lookup(local.env_override, "topics", lookup(local.config, "topics", {}))
+  databases = lookup(local.env_override, "databases", lookup(local.config, "databases", {}))
+  secrets   = lookup(local.env_override, "secrets", lookup(local.config, "secrets", {}))
 
-  # Common tags from base config
+  # App metadata from config
+  app_name = lookup(local.config, "name", var.app_name)
+
+  # Common tags
   common_tags = merge(var.tags, {
-    Team      = lookup(local.base, "team", "unknown")
-    Domain    = lookup(local.base, "domain", "unknown")
-    Portfolio = lookup(local.base, "portfolio", "unknown")
-    AppName   = lookup(local.base, "name", var.app_name)
+    Team      = lookup(local.config, "team", "unknown")
+    Domain    = lookup(local.config, "domain", "unknown")
+    Portfolio = lookup(local.config, "portfolio", "unknown")
+    AppName   = local.app_name
     ManagedBy = "terraform"
   })
 }
@@ -63,8 +61,7 @@ locals {
 # S3 Buckets — terraform-aws-modules/s3-bucket/aws
 #
 # Guardrails: KMS encryption, public access blocked, versioning default on
-# Naming: conservice-{env}-{app_name}-{bucket_key}
-# (S3 uses conservice- prefix per naming convention — global namespace)
+# Naming: conservice-{env}-{app_name}-{key}
 # -----------------------------------------------------------------------------
 
 module "s3_buckets" {
@@ -99,10 +96,10 @@ module "s3_buckets" {
 }
 
 # -----------------------------------------------------------------------------
-# SQS Queues — native resources (simple enough, no community module needed)
+# SQS Queues — native resources
 #
-# Guardrails: SQS-managed encryption, DLQ by default, consistent naming
-# Naming: csvc-{env}-{region_code}-{app_name}-{queue_key}-queue
+# Guardrails: SQS-managed encryption, DLQ by default
+# Naming: csvc-{env}-{region_code}-{app_name}-{key}-queue
 # -----------------------------------------------------------------------------
 
 resource "aws_sqs_queue" "dlqs" {
@@ -141,8 +138,8 @@ resource "aws_sqs_queue" "queues" {
 # -----------------------------------------------------------------------------
 # SNS Topics — native resources
 #
-# Guardrails: KMS encryption, consistent naming
-# Naming: csvc-{env}-{region_code}-{app_name}-{topic_key}-topic
+# Guardrails: KMS encryption
+# Naming: csvc-{env}-{region_code}-{app_name}-{key}-topic
 # -----------------------------------------------------------------------------
 
 resource "aws_sns_topic" "topics" {
@@ -153,6 +150,26 @@ resource "aws_sns_topic" "topics" {
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-${each.key}-topic"
+  })
+}
+
+# -----------------------------------------------------------------------------
+# Secrets Manager — native resources
+#
+# Creates secret containers. Values are populated via CLI or console post-apply.
+# ESO syncs these into K8s via ExternalSecret manifests (managed in k8s-apps repo).
+# Naming: conservice-{env}-{app_name}-{key}
+# -----------------------------------------------------------------------------
+
+resource "aws_secretsmanager_secret" "secrets" {
+  for_each = local.secrets
+
+  name        = "conservice-${var.env}-${var.app_name}-${each.key}"
+  description = lookup(each.value, "description", "Secret for ${var.app_name}")
+  kms_key_id  = var.kms_key_arn
+
+  tags = merge(local.common_tags, {
+    Name = "conservice-${var.env}-${var.app_name}-${each.key}"
   })
 }
 
