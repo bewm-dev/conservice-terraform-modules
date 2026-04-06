@@ -73,6 +73,7 @@ configs:
     kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
     url: https://${argocd_domain}
     timeout.reconciliation: 15s
+    resource.server-side-diff: "true"
 
     resource.exclusions: |
       - apiGroups:
