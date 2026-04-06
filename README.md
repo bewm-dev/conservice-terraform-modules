@@ -10,7 +10,7 @@ Used by `conservice-aws-platform` account configs. These cover patterns that com
 
 | Module | Purpose | Used By |
 |--------|---------|---------|
-| `conservice-account-base` | Per-account baseline IAM (TF execution, ECR pull, Aurora access roles) | All account `global/iam` |
+| `conservice-account-iam-baseline` | Per-account baseline IAM (TF execution, ECR pull, Aurora access roles) | All account `global/iam` |
 | `conservice-eks-addons` | Pod Identity roles for LBC, ExternalDNS, ESO, Karpenter, Container Insights | All EKS cluster configs |
 | `conservice-argocd` | ArgoCD bootstrap via Helm (minimal install + Dex SSO secrets) | Platform eks-mgmt |
 | `conservice-argocd-add-cluster` | Register remote EKS cluster with ArgoCD management cluster | Production (Phase 7.3) |
@@ -80,7 +80,7 @@ my-app/
 
 ```hcl
 module "account_base" {
-  source = "git::https://github.com/shawnpetersen/conservice-terraform-modules.git//modules/conservice-account-base?ref=conservice-account-base/v1.0.0"
+  source = "git::https://github.com/shawnpetersen/conservice-terraform-modules.git//modules/conservice-account-iam-baseline?ref=conservice-account-iam-baseline/v1.0.0"
 
   env              = "dev"
   aws_account_id   = "106751264134"

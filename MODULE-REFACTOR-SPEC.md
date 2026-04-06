@@ -29,7 +29,7 @@ App-level modules (`app-infra`, `aurora-database`) were refactored to `conservic
 
 | Module | Purpose |
 |--------|---------|
-| `conservice-account-base` | Per-account baseline IAM (TF execution, ECR pull, Aurora access) |
+| `conservice-account-iam-baseline` | Per-account baseline IAM (TF execution, ECR pull, Aurora access) |
 | `conservice-eks-addons` | Pod Identity roles for LBC, ExternalDNS, ESO, Karpenter |
 | `conservice-argocd` | ArgoCD bootstrap via Helm + Dex SSO secrets |
 | `conservice-argocd-add-cluster` | Register remote EKS cluster with ArgoCD |
