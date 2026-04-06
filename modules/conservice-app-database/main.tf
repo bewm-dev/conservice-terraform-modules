@@ -1,12 +1,11 @@
 # -----------------------------------------------------------------------------
-# Conservice Aurora Database Module (App-Level Guardrail)
+# conservice-app-database
 #
-# Creates a PostgreSQL database with IAM-authenticated roles for service
-# and team access. Consumed by app teams via infra/database.tf.
+# Creates a PostgreSQL database with IAM-authenticated roles inside a shared
+# Aurora cluster. The cluster is provisioned by SRE (terraform-aws-modules/
+# rds-aurora/aws); this module creates app-scoped resources inside it.
 #
-# This module connects to a shared Aurora cluster using master credentials
-# and creates app-scoped resources inside it. The cluster itself is
-# provisioned by terraform-aws-modules/rds-aurora/aws in the account configs.
+# Auth chain: Google → Identity Center → IAM → rds-db:connect (no passwords)
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -24,7 +23,7 @@ resource "postgresql_database" "this" {
 }
 
 # -----------------------------------------------------------------------------
-# Service Role (used by the application pod via IAM auth)
+# Service Role (application pod via IAM auth)
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "service" {
@@ -32,7 +31,6 @@ resource "postgresql_role" "service" {
   login = true
   roles = ["rds_iam"]
 
-  # No password — IAM auth only
   skip_reassign_owned = true
 }
 
@@ -60,8 +58,6 @@ resource "postgresql_grant" "service_sequences" {
   privileges  = ["USAGE", "SELECT"]
 }
 
-# Default privileges — new tables/sequences created by this role
-# automatically get the right grants
 resource "postgresql_default_privileges" "service_tables" {
   role     = postgresql_role.service.name
   database = postgresql_database.this.name
@@ -83,7 +79,7 @@ resource "postgresql_default_privileges" "service_sequences" {
 }
 
 # -----------------------------------------------------------------------------
-# Team Read-Only Role (used by developers via SSO → IAM auth)
+# Team Read-Only Role (developers via SSO → IAM auth)
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "team" {
@@ -116,8 +112,6 @@ resource "postgresql_grant" "team_tables" {
   privileges  = var.team_permissions
 }
 
-# Default privileges — new tables created by the service role
-# automatically grant read access to the team role
 resource "postgresql_default_privileges" "team_tables" {
   count = var.team_role != "" ? 1 : 0
 
@@ -178,10 +172,6 @@ resource "postgresql_default_privileges" "additional_readers_tables" {
 
 # -----------------------------------------------------------------------------
 # Individual Admin Users (Google identity → IAM auth)
-#
-# Each person gets their own login role with full database access.
-# They authenticate via: Google → Identity Center → IAM → rds-db:connect
-# PostgreSQL logs show their individual username for audit.
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "admin_users" {
@@ -197,9 +187,6 @@ resource "postgresql_role" "admin_users" {
 
 # -----------------------------------------------------------------------------
 # Individual Read-Only Users (Google identity → IAM auth)
-#
-# Same pattern as admins but with SELECT-only access.
-# Used for developers who need to query but not modify data.
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "readonly_users" {

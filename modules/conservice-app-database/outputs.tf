@@ -19,12 +19,12 @@ output "additional_reader_role_names" {
 }
 
 output "admin_user_names" {
-  description = "Names of individual admin user roles (for IAM policy rds-db:connect resources)"
+  description = "Names of individual admin user roles"
   value       = [for name, role in postgresql_role.admin_users : role.name]
 }
 
 output "readonly_user_names" {
-  description = "Names of individual read-only user roles (for IAM policy rds-db:connect resources)"
+  description = "Names of individual read-only user roles"
   value       = [for name, role in postgresql_role.readonly_users : role.name]
 }
 

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Required Variables
+# Required
 # -----------------------------------------------------------------------------
 
 variable "database_name" {
@@ -13,7 +13,7 @@ variable "service_role" {
 }
 
 # -----------------------------------------------------------------------------
-# Optional Variables
+# Optional
 # -----------------------------------------------------------------------------
 
 variable "team_role" {
@@ -35,49 +35,49 @@ variable "team_permissions" {
 }
 
 variable "additional_readonly_roles" {
-  description = "Additional IAM-authenticated read-only roles (e.g., for cross-team access or reporting)"
+  description = "Additional IAM-authenticated read-only roles (e.g., cross-team access or reporting)"
   type        = list(string)
   default     = []
 }
 
 variable "admin_users" {
-  description = "Individual IAM-authenticated admin users (Google identity usernames, e.g., [\"aarondavis\", \"jane.smith\"]). Each gets a personal login role with full database access."
+  description = "Individual admin users (Google identity usernames). Each gets a personal login with full database access."
   type        = list(string)
   default     = []
 }
 
 variable "readonly_users" {
-  description = "Individual IAM-authenticated read-only users (Google identity usernames). Each gets a personal login role with SELECT-only access."
+  description = "Individual read-only users (Google identity usernames). Each gets a personal login with SELECT-only access."
   type        = list(string)
   default     = []
 }
 
 variable "extensions" {
-  description = "PostgreSQL extensions to enable in the database (e.g., [\"pgcrypto\", \"uuid-ossp\", \"pg_stat_statements\"])"
+  description = "PostgreSQL extensions to enable (e.g., [\"pgcrypto\", \"uuid-ossp\"])"
   type        = list(string)
   default     = []
 }
 
 variable "connection_limit" {
-  description = "Maximum number of concurrent connections to the database. -1 for unlimited."
+  description = "Maximum concurrent connections. -1 for unlimited."
   type        = number
   default     = -1
 }
 
 variable "encoding" {
-  description = "Character set encoding for the database"
+  description = "Character set encoding"
   type        = string
   default     = "UTF8"
 }
 
 variable "lc_collate" {
-  description = "Collation order for the database"
+  description = "Collation order"
   type        = string
   default     = "en_US.UTF-8"
 }
 
 variable "lc_ctype" {
-  description = "Character classification for the database"
+  description = "Character classification"
   type        = string
   default     = "en_US.UTF-8"
 }
