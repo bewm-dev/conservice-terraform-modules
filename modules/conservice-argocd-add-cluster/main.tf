@@ -68,7 +68,9 @@ resource "kubectl_manifest" "root_application" {
         path           = var.bootstrap_cluster_path
       }
       destination = {
-        server    = var.cluster_endpoint
+        # Root app creates child Application CRDs — these must live on the
+        # management cluster where ArgoCD runs, not on the remote cluster.
+        server    = "https://kubernetes.default.svc"
         namespace = var.argocd_namespace
       }
       syncPolicy = {
