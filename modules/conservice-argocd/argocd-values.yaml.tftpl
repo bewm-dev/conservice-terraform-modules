@@ -59,7 +59,6 @@ redis-ha:
 
 applicationSet:
   replicas: 1
-  policy: create-update
 
 notifications:
   enabled: false
@@ -85,36 +84,6 @@ configs:
     timeout.reconciliation: 120s
     timeout.reconciliation.jitter: 60s
     resource.server-side-diff: "true"
-
-    resource.exclusions: |
-      - apiGroups:
-        - ''
-        - discovery.k8s.io
-        kinds:
-        - Endpoints
-        - EndpointSlice
-      - apiGroups:
-        - coordination.k8s.io
-        kinds:
-        - Lease
-      - apiGroups:
-        - authentication.k8s.io
-        - authorization.k8s.io
-        kinds:
-        - SelfSubjectReview
-        - TokenReview
-        - LocalSubjectAccessReview
-        - SelfSubjectAccessReview
-        - SelfSubjectRulesReview
-        - SubjectAccessReview
-      - apiGroups:
-        - certificates.k8s.io
-        kinds:
-        - CertificateSigningRequest
-      - apiGroups:
-        - cert-manager.io
-        kinds:
-        - CertificateRequest
 
 %{ if enable_dex ~}
     dex.config: |
