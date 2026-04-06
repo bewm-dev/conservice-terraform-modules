@@ -28,19 +28,16 @@ resource "kubernetes_secret" "cluster" {
   data = {
     name   = var.cluster_name
     server = var.cluster_endpoint
-    config = jsonencode(merge(
-      {
-        awsAuthConfig = {
-          clusterName = var.cluster_name
-          roleARN     = var.argocd_role_arn
-        }
-      },
-      var.cluster_ca_data != "" ? {
-        tlsClientConfig = {
-          caData = var.cluster_ca_data
-        }
-      } : {}
-    ))
+    config = jsonencode({
+      awsAuthConfig = {
+        clusterName = var.cluster_name
+        roleARN     = var.argocd_role_arn
+      }
+      tlsClientConfig = {
+        insecure = var.cluster_ca_data == ""
+        caData   = var.cluster_ca_data != "" ? var.cluster_ca_data : null
+      }
+    })
   }
 
   type = "Opaque"
