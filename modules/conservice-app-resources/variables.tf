@@ -47,3 +47,16 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# Pod Identity — required when pod_identity is defined in infra.yaml
+variable "cluster_name" {
+  description = "EKS cluster name for Pod Identity association"
+  type        = string
+  default     = ""
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID (used in IAM policy resource ARNs)"
+  type        = string
+  default     = ""
+}

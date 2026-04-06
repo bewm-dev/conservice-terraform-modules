@@ -38,11 +38,12 @@ locals {
   env_override      = local.has_env_override ? yamldecode(file(local.env_override_path)) : {}
 
   # Merge: infra.yaml defaults ← env override (env wins for each resource type)
-  buckets   = lookup(local.env_override, "buckets", lookup(local.config, "buckets", {}))
-  queues    = lookup(local.env_override, "queues", lookup(local.config, "queues", {}))
-  topics    = lookup(local.env_override, "topics", lookup(local.config, "topics", {}))
-  databases = lookup(local.env_override, "databases", lookup(local.config, "databases", {}))
-  secrets   = lookup(local.env_override, "secrets", lookup(local.config, "secrets", {}))
+  buckets      = lookup(local.env_override, "buckets", lookup(local.config, "buckets", {}))
+  queues       = lookup(local.env_override, "queues", lookup(local.config, "queues", {}))
+  topics       = lookup(local.env_override, "topics", lookup(local.config, "topics", {}))
+  databases    = lookup(local.env_override, "databases", lookup(local.config, "databases", {}))
+  secrets      = lookup(local.env_override, "secrets", lookup(local.config, "secrets", {}))
+  pod_identity = lookup(local.config, "pod_identity", null)
 
   # App metadata from config
   app_name = lookup(local.config, "name", var.app_name)
@@ -195,4 +196,158 @@ module "databases" {
   connection_limit = lookup(each.value, "connection_limit", -1)
 
   additional_readonly_roles = lookup(each.value, "additional_readonly_roles", [])
+}
+
+# -----------------------------------------------------------------------------
+# Pod Identity — auto-generated IAM role scoped to this app's resources
+#
+# Creates an IAM role with permissions for exactly the resources declared
+# above (S3 buckets, SQS queues, SNS topics, Secrets Manager secrets,
+# Aurora databases). Associates it with an EKS service account via Pod Identity.
+#
+# Enabled when pod_identity block is present in infra.yaml.
+# -----------------------------------------------------------------------------
+
+locals {
+  create_pod_identity = local.pod_identity != null
+
+  # Build IAM policy statements from declared resources
+  s3_statements = length(local.buckets) > 0 ? [{
+    sid    = "S3Access"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
+    ]
+    resources = flatten([
+      for k, _ in local.buckets : [
+        module.s3_buckets[k].s3_bucket_arn,
+        "${module.s3_buckets[k].s3_bucket_arn}/*",
+      ]
+    ])
+  }] : []
+
+  sqs_statements = length(local.queues) > 0 ? [{
+    sid    = "SQSAccess"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl",
+    ]
+    resources = [for k, v in aws_sqs_queue.queues : v.arn]
+  }] : []
+
+  sns_statements = length(local.topics) > 0 ? [{
+    sid       = "SNSPublish"
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
+    resources = [for k, v in aws_sns_topic.topics : v.arn]
+  }] : []
+
+  secrets_statements = length(local.secrets) > 0 ? [{
+    sid       = "SecretsManagerRead"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [for k, v in aws_secretsmanager_secret.secrets : v.arn]
+  }] : []
+
+  db_statements = length(local.databases) > 0 ? [{
+    sid       = "AuroraIAMAuth"
+    effect    = "Allow"
+    actions   = ["rds-db:connect"]
+    resources = [for k, v in module.databases : "arn:aws:rds-db:${var.region}:${var.aws_account_id}:dbuser:*/${v.service_role_name}"]
+  }] : []
+
+  # KMS decrypt needed if using customer-managed KMS for S3/Secrets
+  kms_statements = var.kms_key_arn != null ? [{
+    sid    = "KMSDecrypt"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = [var.kms_key_arn]
+  }] : []
+
+  all_policy_statements = concat(
+    local.s3_statements,
+    local.sqs_statements,
+    local.sns_statements,
+    local.secrets_statements,
+    local.db_statements,
+    local.kms_statements,
+  )
+}
+
+data "aws_iam_policy_document" "pod_identity_trust" {
+  count = local.create_pod_identity ? 1 : 0
+
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "pod_identity" {
+  count = local.create_pod_identity ? 1 : 0
+
+  dynamic "statement" {
+    for_each = local.all_policy_statements
+    content {
+      sid       = statement.value.sid
+      effect    = statement.value.effect
+      actions   = statement.value.actions
+      resources = statement.value.resources
+    }
+  }
+}
+
+resource "aws_iam_role" "pod_identity" {
+  count = local.create_pod_identity ? 1 : 0
+
+  name               = "${local.name_prefix}-pod-role"
+  path               = "/apps/"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_trust[0].json
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-pod-role"
+  })
+}
+
+resource "aws_iam_policy" "pod_identity" {
+  count = local.create_pod_identity ? 1 : 0
+
+  name   = "${local.name_prefix}-pod-policy"
+  path   = "/apps/"
+  policy = data.aws_iam_policy_document.pod_identity[0].json
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-pod-policy"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "pod_identity" {
+  count = local.create_pod_identity ? 1 : 0
+
+  role       = aws_iam_role.pod_identity[0].name
+  policy_arn = aws_iam_policy.pod_identity[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "this" {
+  count = local.create_pod_identity ? 1 : 0
+
+  cluster_name    = var.cluster_name
+  namespace       = lookup(local.pod_identity, "namespace", var.app_name)
+  service_account = lookup(local.pod_identity, "service_account", var.app_name)
+  role_arn        = aws_iam_role.pod_identity[0].arn
 }

@@ -65,3 +65,12 @@ portfolio: billing
 #     description: "External API keys for third-party integrations"
 #   config:
 #     description: "Application configuration values"
+
+# -----------------------------------------------------------------------------
+# Pod Identity — auto-generated IAM role for your app's k8s pods
+# Permissions are built automatically from the resources you declared above.
+# You just specify the k8s namespace and service account name.
+# -----------------------------------------------------------------------------
+# pod_identity:
+#   namespace: my-app               # k8s namespace (default: app_name)
+#   service_account: my-app         # k8s ServiceAccount name (default: app_name)

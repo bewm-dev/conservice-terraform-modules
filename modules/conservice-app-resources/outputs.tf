@@ -72,3 +72,12 @@ output "database_all_iam_roles" {
   description = "Map of database key to all IAM role names"
   value       = { for k, v in module.databases : k => v.all_iam_role_names }
 }
+
+# -----------------------------------------------------------------------------
+# Pod Identity
+# -----------------------------------------------------------------------------
+
+output "pod_identity_role_arn" {
+  description = "IAM role ARN for the app's Pod Identity (use in ServiceAccount annotation)"
+  value       = length(aws_iam_role.pod_identity) > 0 ? aws_iam_role.pod_identity[0].arn : ""
+}
