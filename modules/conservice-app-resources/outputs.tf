@@ -78,6 +78,11 @@ output "database_all_iam_roles" {
 # -----------------------------------------------------------------------------
 
 output "pod_identity_role_arn" {
-  description = "IAM role ARN for the app's Pod Identity (use in ServiceAccount annotation)"
+  description = "IAM role ARN for the app's Pod Identity"
   value       = length(aws_iam_role.pod_identity) > 0 ? aws_iam_role.pod_identity[0].arn : ""
+}
+
+output "ci_role_arn" {
+  description = "IAM role ARN for app CI (GitHub Actions assumes this for plan/apply/push)"
+  value       = length(aws_iam_role.ci) > 0 ? aws_iam_role.ci[0].arn : ""
 }

@@ -44,6 +44,7 @@ locals {
   databases    = lookup(local.env_override, "databases", lookup(local.config, "databases", {}))
   secrets      = lookup(local.env_override, "secrets", lookup(local.config, "secrets", {}))
   pod_identity = lookup(local.config, "pod_identity", null)
+  ci_role      = lookup(local.config, "ci_role", null)
 
   # App metadata from config
   app_name = lookup(local.config, "name", var.app_name)
@@ -350,4 +351,196 @@ resource "aws_eks_pod_identity_association" "this" {
   namespace       = lookup(local.pod_identity, "namespace", var.app_name)
   service_account = lookup(local.pod_identity, "service_account", var.app_name)
   role_arn        = aws_iam_role.pod_identity[0].arn
+}
+
+# -----------------------------------------------------------------------------
+# CI Role — per-app IAM role for GitHub Actions
+#
+# Scoped to this app's resources only. GitHub Actions assumes this role
+# (via OIDC → org role → assume this role) to:
+#   - Run terraform plan/apply on this app's infra
+#   - Push Docker images to this app's ECR repos
+#   - Read/write this app's Terraform state
+#
+# Enabled when ci_role block is present in infra.yaml.
+# -----------------------------------------------------------------------------
+
+locals {
+  create_ci_role = local.ci_role != null
+  ci_github_org  = lookup(local.ci_role != null ? local.ci_role : {}, "github_org", "")
+  ci_repo_name   = lookup(local.ci_role != null ? local.ci_role : {}, "repo_name", "conservice-app-${var.app_name}")
+}
+
+data "aws_iam_policy_document" "ci_trust" {
+  count = local.create_ci_role ? 1 : 0
+
+  # Trust the org-level GitHub OIDC role to assume this role
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.github_oidc_provider_arn]
+    }
+
+    # Scope to this specific repo on main branch
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalTag/Repository"
+      values   = ["${local.ci_github_org}/${local.ci_repo_name}"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "ci" {
+  count = local.create_ci_role ? 1 : 0
+
+  # Terraform state access (this app's state key only)
+  statement {
+    sid    = "TerraformState"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      "arn:aws:s3:::${var.tf_state_bucket}",
+      "arn:aws:s3:::${var.tf_state_bucket}/*/apps/${var.app_name}/*",
+    ]
+  }
+
+  # ECR push (this app's repos only)
+  statement {
+    sid    = "ECRPush"
+    effect = "Allow"
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeRepositories",
+    ]
+    resources = ["arn:aws:ecr:${var.region}:${var.ecr_account_id}:repository/apps/${var.app_name}-*"]
+  }
+
+  statement {
+    sid       = "ECRAuth"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  # Same resource permissions as the pod identity role — CI needs to
+  # create/manage these resources via Terraform
+  dynamic "statement" {
+    for_each = local.all_policy_statements
+    content {
+      sid       = "CI${statement.value.sid}"
+      effect    = statement.value.effect
+      actions   = statement.value.actions
+      resources = statement.value.resources
+    }
+  }
+
+  # Secrets Manager write — CI can populate secret values
+  dynamic "statement" {
+    for_each = length(local.secrets) > 0 ? [1] : []
+    content {
+      sid    = "CISecretsWrite"
+      effect = "Allow"
+      actions = [
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:TagResource",
+      ]
+      resources = [for k, v in aws_secretsmanager_secret.secrets : v.arn]
+    }
+  }
+
+  # EKS Pod Identity association management
+  dynamic "statement" {
+    for_each = local.create_pod_identity ? [1] : []
+    content {
+      sid    = "CIEKSPodIdentity"
+      effect = "Allow"
+      actions = [
+        "eks:CreatePodIdentityAssociation",
+        "eks:DeletePodIdentityAssociation",
+        "eks:DescribePodIdentityAssociation",
+        "eks:ListPodIdentityAssociations",
+      ]
+      resources = ["*"]
+    }
+  }
+
+  # IAM management for this app's roles only
+  statement {
+    sid    = "CIIAMManage"
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:UpdateRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:CreatePolicy",
+      "iam:DeletePolicy",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicyVersion",
+      "iam:ListPolicyVersions",
+      "iam:TagPolicy",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
+      "iam:PassRole",
+    ]
+    resources = [
+      "arn:aws:iam::${var.aws_account_id}:role/apps/${local.name_prefix}-*",
+      "arn:aws:iam::${var.aws_account_id}:policy/apps/${local.name_prefix}-*",
+    ]
+  }
+}
+
+resource "aws_iam_role" "ci" {
+  count = local.create_ci_role ? 1 : 0
+
+  name               = "${local.name_prefix}-ci-role"
+  path               = "/apps/"
+  assume_role_policy = data.aws_iam_policy_document.ci_trust[0].json
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-ci-role"
+  })
+}
+
+resource "aws_iam_policy" "ci" {
+  count = local.create_ci_role ? 1 : 0
+
+  name   = "${local.name_prefix}-ci-policy"
+  path   = "/apps/"
+  policy = data.aws_iam_policy_document.ci[0].json
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-ci-policy"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ci" {
+  count = local.create_ci_role ? 1 : 0
+
+  role       = aws_iam_role.ci[0].name
+  policy_arn = aws_iam_policy.ci[0].arn
 }

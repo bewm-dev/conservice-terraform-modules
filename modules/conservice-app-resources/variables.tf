@@ -60,3 +60,22 @@ variable "aws_account_id" {
   type        = string
   default     = ""
 }
+
+# CI Role — required when ci_role is defined in infra.yaml
+variable "github_oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC provider in the org account (for CI role trust)"
+  type        = string
+  default     = ""
+}
+
+variable "tf_state_bucket" {
+  description = "S3 bucket name for Terraform state (CI role needs read/write)"
+  type        = string
+  default     = ""
+}
+
+variable "ecr_account_id" {
+  description = "AWS account ID where ECR repos live (platform account)"
+  type        = string
+  default     = ""
+}

@@ -74,3 +74,12 @@ portfolio: billing
 # pod_identity:
 #   namespace: my-app               # k8s namespace (default: app_name)
 #   service_account: my-app         # k8s ServiceAccount name (default: app_name)
+
+# -----------------------------------------------------------------------------
+# CI Role — per-app IAM role for GitHub Actions
+# Scoped to this app's resources only (S3, Secrets, ECR, TF state).
+# Other apps' CI can't touch your resources.
+# -----------------------------------------------------------------------------
+# ci_role:
+#   github_org: shawnpetersen       # GitHub org (update when migrating to Enterprise)
+#   repo_name: conservice-app-my-app  # defaults to conservice-app-{app_name}
