@@ -13,6 +13,12 @@ variable "cluster_endpoint" {
   type        = string
 }
 
+variable "cluster_ca_data" {
+  description = "Base64-encoded CA certificate for the remote EKS cluster"
+  type        = string
+  default     = ""
+}
+
 variable "argocd_namespace" {
   description = "Namespace where ArgoCD is installed on the management cluster"
   type        = string
