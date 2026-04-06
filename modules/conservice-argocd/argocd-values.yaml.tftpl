@@ -30,6 +30,7 @@ server:
   extraArgs:
     - --dex-server-plaintext
     - --dex-server=http://argocd-dex-server:5556
+    - --grpc-web
   service:
     type: ClusterIP
   resources:
