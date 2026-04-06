@@ -40,7 +40,7 @@ resource "kubernetes_secret" "dex_oidc" {
   depends_on = [kubernetes_namespace.argocd]
 
   lifecycle {
-    ignore_changes = [data]
+    ignore_changes = [data, metadata[0].annotations, metadata[0].labels]
   }
 }
 
@@ -60,7 +60,7 @@ resource "kubernetes_secret" "dex_google_groups" {
   depends_on = [kubernetes_namespace.argocd]
 
   lifecycle {
-    ignore_changes = [data]
+    ignore_changes = [data, metadata[0].annotations, metadata[0].labels]
   }
 }
 
