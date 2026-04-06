@@ -32,17 +32,24 @@ server:
     - --dex-server=http://argocd-dex-server:5556
   service:
     type: ClusterIP
+  resources:
+    limits:
+      memory: 1Gi
   autoscaling:
     enabled: true
     minReplicas: 1
 
 repoServer:
+  resources:
+    limits:
+      memory: 1Gi
   autoscaling:
     enabled: true
     minReplicas: 1
+    targetMemoryUtilizationPercentage: 70
 
 controller:
-  replicas: 2
+  replicas: 1
 
 redis:
   enabled: true
@@ -52,6 +59,7 @@ redis-ha:
 
 applicationSet:
   replicas: 1
+  policy: create-update
 
 notifications:
   enabled: false
@@ -61,6 +69,8 @@ configs:
     server.insecure: true
     server.dex.server.strict.tls: "false"
     reposerver.parallelism.limit: 5
+    server.enable.gzip: "true"
+    applicationsetcontroller.policy: create-update
 
   rbac:
     policy.default: ''
@@ -72,7 +82,8 @@ configs:
   cm:
     kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
     url: https://${argocd_domain}
-    timeout.reconciliation: 15s
+    timeout.reconciliation: 120s
+    timeout.reconciliation.jitter: 60s
     resource.server-side-diff: "true"
 
     resource.exclusions: |
