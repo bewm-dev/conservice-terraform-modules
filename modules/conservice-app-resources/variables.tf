@@ -61,6 +61,12 @@ variable "aws_account_id" {
   default     = ""
 }
 
+variable "enable_databases" {
+  description = "Enable database provisioning (requires postgresql provider with VPC access to Aurora)"
+  type        = bool
+  default     = true
+}
+
 # CI Role — required when ci_role is defined in infra.yaml
 variable "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider in the org account (for CI role trust)"

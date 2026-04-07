@@ -181,7 +181,7 @@ resource "aws_secretsmanager_secret" "secrets" {
 
 module "databases" {
   source   = "../conservice-app-database"
-  for_each = local.databases
+  for_each = var.enable_databases ? local.databases : {}
 
   database_name = each.key
   service_role  = lookup(each.value, "service_role", "${var.app_name}-${each.key}-svc")
