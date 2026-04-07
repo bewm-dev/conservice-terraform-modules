@@ -86,3 +86,9 @@ variable "route53_zone_ids" {
     error_message = "route53_zone_ids must not be empty when enable_external_dns is true."
   }
 }
+
+variable "secrets_kms_key_arns" {
+  description = "KMS key ARNs used to encrypt Secrets Manager secrets. ESO needs kms:Decrypt to read secret values."
+  type        = list(string)
+  default     = []
+}

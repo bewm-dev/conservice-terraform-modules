@@ -460,6 +460,19 @@ data "aws_iam_policy_document" "eso" {
     ]
     resources = ["arn:aws:ssm:*:${var.aws_account_id}:parameter/*"]
   }
+
+  # KMS decrypt — required when secrets are encrypted with customer-managed keys
+  dynamic "statement" {
+    for_each = length(var.secrets_kms_key_arns) > 0 ? [1] : []
+    content {
+      effect = "Allow"
+      actions = [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+      ]
+      resources = var.secrets_kms_key_arns
+    }
+  }
 }
 
 # =============================================================================
