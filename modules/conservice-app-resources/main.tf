@@ -184,7 +184,7 @@ module "databases" {
   for_each = var.enable_databases ? local.databases : {}
 
   database_name = each.key
-  service_role  = lookup(each.value, "service_role", "${var.app_name}-${each.key}-svc")
+  service_role  = lookup(each.value, "service_role", "${replace(var.app_name, "-", "_")}_svc")
   team_role     = lookup(each.value, "team_role", "")
   extensions    = lookup(each.value, "extensions", [])
 
