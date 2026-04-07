@@ -1,27 +1,112 @@
 # -----------------------------------------------------------------------------
-# Register Remote EKS Cluster with ArgoCD
+# Register Workload Cluster with ArgoCD (bearer token auth)
 # -----------------------------------------------------------------------------
 #
-# Creates a cluster secret on the ArgoCD management cluster using IAM role
-# auth (awsAuthConfig). No ServiceAccount tokens or ClusterRoles needed on
-# the remote cluster — IAM role + EKS access entry handles everything.
+# Dual-provider pattern: the workload cluster registers ITSELF with ArgoCD.
 #
-# Provider note: The kubernetes and kubectl providers used by this module
-# must be configured to target the MANAGEMENT cluster (where ArgoCD runs),
-# not the remote cluster being registered.
+# - `kubernetes` (default) targets the WORKLOAD cluster:
+#   Creates ServiceAccount + ClusterRole + bearer token for ArgoCD to use.
+#
+# - `kubernetes.mgmt` targets the MANAGEMENT cluster:
+#   Creates the cluster secret + root Application in ArgoCD's namespace.
+#
+# No IAM role chaining needed — ArgoCD authenticates to the workload cluster
+# using the bearer token stored in the cluster secret.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# ArgoCD Cluster Secret (on management cluster)
+# Workload Cluster: ServiceAccount + RBAC for ArgoCD
+# (created on the workload cluster via default kubernetes provider)
+# -----------------------------------------------------------------------------
+
+resource "kubernetes_service_account" "argocd_manager" {
+  metadata {
+    name      = "argocd-manager"
+    namespace = "kube-system"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/part-of"    = "argocd"
+    }
+  }
+}
+
+resource "kubernetes_secret" "argocd_manager_token" {
+  metadata {
+    name      = "argocd-manager-token"
+    namespace = "kube-system"
+    annotations = {
+      "kubernetes.io/service-account.name"      = kubernetes_service_account.argocd_manager.metadata[0].name
+      "kubernetes.io/service-account.namespace" = "kube-system"
+    }
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/part-of"    = "argocd"
+    }
+  }
+  type                           = "kubernetes.io/service-account-token"
+  wait_for_service_account_token = true
+
+  depends_on = [kubernetes_service_account.argocd_manager]
+}
+
+resource "kubernetes_cluster_role" "argocd_manager" {
+  metadata {
+    name = "argocd-manager-role"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/part-of"    = "argocd"
+    }
+  }
+
+  rule {
+    api_groups = ["*"]
+    resources  = ["*"]
+    verbs      = ["*"]
+  }
+
+  rule {
+    non_resource_urls = ["*"]
+    verbs             = ["*"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding" "argocd_manager" {
+  metadata {
+    name = "argocd-manager-role-binding"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/part-of"    = "argocd"
+    }
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.argocd_manager.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.argocd_manager.metadata[0].name
+    namespace = "kube-system"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Management Cluster: ArgoCD Cluster Secret
+# (created on the mgmt cluster via kubernetes.mgmt provider)
 # -----------------------------------------------------------------------------
 
 resource "kubernetes_secret" "cluster" {
+  provider = kubernetes.mgmt
+
   metadata {
-    name      = var.cluster_secret_name
+    name      = "${var.cluster_name}-secret"
     namespace = var.argocd_namespace
 
     labels = {
       "argocd.argoproj.io/secret-type" = "cluster"
+      "app.kubernetes.io/managed-by"   = "terraform"
     }
   }
 
@@ -29,13 +114,10 @@ resource "kubernetes_secret" "cluster" {
     name   = var.cluster_name
     server = var.cluster_endpoint
     config = jsonencode({
-      awsAuthConfig = {
-        clusterName = var.cluster_name
-        roleARN     = var.argocd_role_arn
-      }
+      bearerToken = kubernetes_secret.argocd_manager_token.data["token"]
       tlsClientConfig = {
-        insecure = var.cluster_ca_data == ""
-        caData   = var.cluster_ca_data != "" ? var.cluster_ca_data : null
+        insecure = false
+        caData   = base64encode(kubernetes_secret.argocd_manager_token.data["ca.crt"])
       }
     })
   }
@@ -44,10 +126,12 @@ resource "kubernetes_secret" "cluster" {
 }
 
 # -----------------------------------------------------------------------------
-# Bootstrap Root Application (for this remote cluster)
+# Management Cluster: Bootstrap Root Application
+# (created on the mgmt cluster via kubectl.mgmt provider)
 # -----------------------------------------------------------------------------
 
 resource "kubectl_manifest" "root_application" {
+  provider   = kubectl.mgmt
   depends_on = [kubernetes_secret.cluster]
 
   yaml_body = yamlencode({
@@ -68,8 +152,8 @@ resource "kubectl_manifest" "root_application" {
         path           = var.bootstrap_cluster_path
       }
       destination = {
-        # Root app creates child Application CRDs — these must live on the
-        # management cluster where ArgoCD runs, not on the remote cluster.
+        # Root app creates child Application CRDs — these live on the
+        # management cluster where ArgoCD runs, not on the workload cluster.
         server    = "https://kubernetes.default.svc"
         namespace = var.argocd_namespace
       }

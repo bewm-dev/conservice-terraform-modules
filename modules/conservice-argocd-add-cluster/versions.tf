@@ -3,12 +3,14 @@ terraform {
 
   required_providers {
     kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.37.0"
+      source                = "hashicorp/kubernetes"
+      version               = "~> 2.37.0"
+      configuration_aliases = [kubernetes, kubernetes.mgmt]
     }
     kubectl = {
-      source  = "alekc/kubectl"
-      version = "~> 2.1.0"
+      source                = "alekc/kubectl"
+      version               = "~> 2.1.0"
+      configuration_aliases = [kubectl.mgmt]
     }
   }
 }

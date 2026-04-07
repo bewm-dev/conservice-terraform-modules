@@ -1,39 +1,17 @@
 variable "cluster_name" {
-  description = "Remote EKS cluster name to register with ArgoCD"
-  type        = string
-}
-
-variable "env" {
-  description = "Environment name for tagging"
-  type        = string
-  default     = ""
-}
-
-variable "cluster_secret_name" {
-  description = "Short name for the ArgoCD cluster secret (e.g. prod-workload)"
+  description = "Workload EKS cluster name (used for secret naming and ArgoCD display)"
   type        = string
 }
 
 variable "cluster_endpoint" {
-  description = "Remote EKS cluster API server endpoint"
+  description = "Workload EKS cluster API server endpoint"
   type        = string
-}
-
-variable "cluster_ca_data" {
-  description = "Base64-encoded CA certificate for the remote EKS cluster"
-  type        = string
-  default     = ""
 }
 
 variable "argocd_namespace" {
   description = "Namespace where ArgoCD is installed on the management cluster"
   type        = string
   default     = "argocd"
-}
-
-variable "argocd_role_arn" {
-  description = "IAM role ARN that ArgoCD assumes for cross-account cluster access"
-  type        = string
 }
 
 variable "repo_url" {
@@ -48,7 +26,7 @@ variable "repo_target_revision" {
 }
 
 variable "bootstrap_cluster_path" {
-  description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/prod-workload)"
+  description = "Path in repo for this cluster's app-of-apps chart (e.g. clusters/stg-use1-workload)"
   type        = string
 }
 
