@@ -273,14 +273,16 @@ locals {
     resources = [var.kms_key_arn]
   }] : []
 
-  all_policy_statements = concat(
+  # Use flatten instead of concat to avoid go-cty type mismatch panic
+  # when some lists are empty with different inferred element types
+  all_policy_statements = flatten([
     local.s3_statements,
     local.sqs_statements,
     local.sns_statements,
     local.secrets_statements,
     local.db_statements,
     local.kms_statements,
-  )
+  ])
 }
 
 data "aws_iam_policy_document" "pod_identity_trust" {
