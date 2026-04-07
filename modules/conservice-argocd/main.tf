@@ -50,6 +50,7 @@ resource "kubernetes_secret" "dex_google_groups" {
   metadata {
     name      = "dex-google-groups"
     namespace = var.namespace
+    labels    = {}
   }
 
   data = {
@@ -106,7 +107,8 @@ resource "helm_release" "argocd" {
 # -----------------------------------------------------------------------------
 
 resource "kubectl_manifest" "project_platform_addons" {
-  depends_on = [helm_release.argocd]
+  depends_on        = [helm_release.argocd]
+  server_side_apply = true
 
   yaml_body = yamlencode({
     apiVersion = "argoproj.io/v1alpha1"
