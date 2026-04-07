@@ -3,9 +3,11 @@
 module "resources" {
   source = "git::https://github.com/shawnpetersen/conservice-terraform-modules.git//modules/conservice-app-resources?ref=conservice-app-resources/v1.0.0"
 
-  app_name    = var.app_name
-  env         = var.env
-  region      = var.region
-  config_path = path.module
-  kms_key_arn = var.kms_key_arn
+  app_name        = var.app_name
+  project         = var.project
+  resource_prefix = var.resource_prefix
+  env             = var.env
+  region          = var.region
+  config_path     = path.module
+  kms_key_arn     = var.kms_key_arn
 }

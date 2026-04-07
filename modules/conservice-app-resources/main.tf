@@ -9,10 +9,10 @@
 #   2. infra/envs/<env>.yaml    — environment overrides (optional, merged on top)
 #
 # Naming:
-#   S3 buckets:  conservice-{env}-{app_name}-{key}  (global namespace)
-#   SQS queues:  csvc-{env}-{region_code}-{app_name}-{key}-queue
-#   SNS topics:  csvc-{env}-{region_code}-{app_name}-{key}-topic
-#   Secrets:     conservice-{env}-{app_name}-{key}
+#   S3 buckets:  {project}-{env}-{app_name}-{key}  (global namespace)
+#   SQS queues:  {resource_prefix}-{env}-{region_code}-{app_name}-{key}-queue
+#   SNS topics:  {resource_prefix}-{env}-{region_code}-{app_name}-{key}-topic
+#   Secrets:     {project}-{env}-{app_name}-{key}
 #   Databases:   key becomes the database name in shared Aurora
 # -----------------------------------------------------------------------------
 
@@ -24,9 +24,9 @@ locals {
     "us-west-1" = "usw1"
     "us-west-2" = "usw2"
   }
-  region_code      = local.region_codes[var.region]
-  name_prefix      = "csvc-${var.env}-${local.region_code}-${var.app_name}"
-  app_role_prefix  = "csvc-${var.env}-${local.region_code}-app-${var.app_name}"
+  region_code     = local.region_codes[var.region]
+  name_prefix     = "${var.resource_prefix}-${var.env}-${local.region_code}-${var.app_name}"
+  app_role_prefix = "${var.resource_prefix}-${var.env}-${local.region_code}-app-${var.app_name}"
 
   # ---------------------------------------------------------------------------
   # YAML config reading — single file + optional env override
@@ -72,7 +72,7 @@ module "s3_buckets" {
   version  = "~> 5.7.0"
   for_each = local.buckets
 
-  bucket = "conservice-${var.env}-${var.app_name}-${each.key}"
+  bucket = "${var.project}-${var.env}-${var.app_name}-${each.key}"
 
   versioning = {
     status = lookup(each.value, "versioning", true) ? "Enabled" : "Suspended"
@@ -94,7 +94,7 @@ module "s3_buckets" {
   restrict_public_buckets = true
 
   tags = merge(local.common_tags, {
-    Name = "conservice-${var.env}-${var.app_name}-${each.key}"
+    Name = "${var.project}-${var.env}-${var.app_name}-${each.key}"
   })
 }
 
@@ -164,12 +164,12 @@ resource "aws_sns_topic" "topics" {
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = local.secrets
 
-  name        = "conservice-${var.env}-${var.app_name}-${each.key}"
+  name        = "${var.project}-${var.env}-${var.app_name}-${each.key}"
   description = lookup(each.value, "description", "Secret for ${var.app_name}")
   kms_key_id  = var.kms_key_arn
 
   tags = merge(local.common_tags, {
-    Name = "conservice-${var.env}-${var.app_name}-${each.key}"
+    Name = "${var.project}-${var.env}-${var.app_name}-${each.key}"
   })
 }
 
@@ -366,7 +366,7 @@ resource "aws_eks_pod_identity_association" "this" {
 locals {
   create_ci_role = local.ci_role != null
   ci_github_org  = lookup(local.ci_role != null ? local.ci_role : {}, "github_org", "")
-  ci_repo_name   = lookup(local.ci_role != null ? local.ci_role : {}, "repo_name", "conservice-app-${var.app_name}")
+  ci_repo_name   = lookup(local.ci_role != null ? local.ci_role : {}, "repo_name", "${var.project}-app-${var.app_name}")
 }
 
 data "aws_iam_policy_document" "ci_trust" {

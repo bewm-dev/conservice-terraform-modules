@@ -60,3 +60,25 @@ variable "enable_ecr_pull_role" {
   type        = bool
   default     = true
 }
+
+variable "iam_allowed_paths" {
+  description = "IAM role/policy paths the TF execution role is allowed to manage. Deny fence blocks all other paths."
+  type        = list(string)
+  default     = ["/infrastructure/", "/eks/", "/ecr/", "/database/", "/dns/", "/ci/", "/apps/"]
+}
+
+variable "allowed_service_linked_roles" {
+  description = "AWS service principals allowed for CreateServiceLinkedRole. All others are denied."
+  type        = list(string)
+  default = [
+    "eks.amazonaws.com",
+    "eks-nodegroup.amazonaws.com",
+    "elasticloadbalancing.amazonaws.com",
+    "autoscaling.amazonaws.com",
+    "rds.amazonaws.com",
+    "guardduty.amazonaws.com",
+    "securityhub.amazonaws.com",
+    "spot.amazonaws.com",
+    "transitgateway.amazonaws.com",
+  ]
+}

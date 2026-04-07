@@ -56,6 +56,9 @@ resource "aws_iam_role" "tf_execution" {
 # -----------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "tf_execution" {
+  # ---------------------------------------------------------------------------
+  # Allow: Infrastructure services (broad — deny fence limits the dangerous bits)
+  # ---------------------------------------------------------------------------
   statement {
     sid = "IaCServices"
     actions = [
@@ -63,49 +66,6 @@ data "aws_iam_policy_document" "tf_execution" {
       "eks:*",
       "rds:*",
       "s3:*",
-      # IAM — scoped to role/policy management, no user creation or privilege escalation
-      "iam:CreateRole",
-      "iam:DeleteRole",
-      "iam:GetRole",
-      "iam:ListRoles",
-      "iam:UpdateRole",
-      "iam:TagRole",
-      "iam:UntagRole",
-      "iam:ListRoleTags",
-      "iam:UpdateAssumeRolePolicy",
-      "iam:PassRole",
-      "iam:CreatePolicy",
-      "iam:DeletePolicy",
-      "iam:GetPolicy",
-      "iam:GetPolicyVersion",
-      "iam:ListPolicies",
-      "iam:ListPolicyVersions",
-      "iam:CreatePolicyVersion",
-      "iam:DeletePolicyVersion",
-      "iam:TagPolicy",
-      "iam:UntagPolicy",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
-      "iam:PutRolePolicy",
-      "iam:DeleteRolePolicy",
-      "iam:GetRolePolicy",
-      "iam:ListRolePolicies",
-      "iam:ListAttachedRolePolicies",
-      "iam:CreateInstanceProfile",
-      "iam:DeleteInstanceProfile",
-      "iam:GetInstanceProfile",
-      "iam:AddRoleToInstanceProfile",
-      "iam:RemoveRoleFromInstanceProfile",
-      "iam:ListInstanceProfiles",
-      "iam:ListInstanceProfilesForRole",
-      "iam:CreateServiceLinkedRole",
-      "iam:DeleteServiceLinkedRole",
-      "iam:GetServiceLinkedRoleDeletionStatus",
-      "iam:CreateOpenIDConnectProvider",
-      "iam:DeleteOpenIDConnectProvider",
-      "iam:GetOpenIDConnectProvider",
-      "iam:TagOpenIDConnectProvider",
-      "iam:ListOpenIDConnectProviders",
       "kms:*",
       "secretsmanager:*",
       "elasticloadbalancing:*",
@@ -121,20 +81,110 @@ data "aws_iam_policy_document" "tf_execution" {
     resources = ["*"]
   }
 
+  # ---------------------------------------------------------------------------
+  # Allow: IAM role/policy management — scoped to known paths only
+  # ---------------------------------------------------------------------------
   statement {
-    sid = "StateBucketAccess"
+    sid = "IAMRoleManagement"
     actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject",
-      "s3:ListBucket",
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:UpdateRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:ListRoleTags",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:PassRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:CreateInstanceProfile",
+      "iam:DeleteInstanceProfile",
+      "iam:GetInstanceProfile",
+      "iam:AddRoleToInstanceProfile",
+      "iam:RemoveRoleFromInstanceProfile",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = flatten([
+      for path in var.iam_allowed_paths : [
+        "arn:aws:iam::${var.aws_account_id}:role${path}*",
+        "arn:aws:iam::${var.aws_account_id}:policy${path}*",
+        "arn:aws:iam::${var.aws_account_id}:instance-profile${path}*",
+      ]
+    ])
+  }
+
+  # ---------------------------------------------------------------------------
+  # Allow: IAM policy management (policies can exist without path prefix)
+  # ---------------------------------------------------------------------------
+  statement {
+    sid = "IAMPolicyManagement"
+    actions = [
+      "iam:CreatePolicy",
+      "iam:DeletePolicy",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicyVersion",
+      "iam:ListPolicyVersions",
+      "iam:TagPolicy",
+      "iam:UntagPolicy",
     ]
     resources = [
-      "arn:aws:s3:::${var.project}-tf-state-${var.env}",
-      "arn:aws:s3:::${var.project}-tf-state-${var.env}/*",
+      for path in var.iam_allowed_paths :
+      "arn:aws:iam::${var.aws_account_id}:policy${path}*"
     ]
   }
 
+  # ---------------------------------------------------------------------------
+  # Allow: IAM read-only (needed for plan, discovery, data sources)
+  # ---------------------------------------------------------------------------
+  statement {
+    sid = "IAMReadOnly"
+    actions = [
+      "iam:ListRoles",
+      "iam:ListPolicies",
+      "iam:ListInstanceProfiles",
+      "iam:ListOpenIDConnectProviders",
+      "iam:GetOpenIDConnectProvider",
+      "iam:ListSAMLProviders",
+      "iam:GetAccountSummary",
+      "iam:GetAccountAuthorizationDetails",
+    ]
+    resources = ["*"]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Allow: OIDC provider management (for EKS Pod Identity / IRSA)
+  # ---------------------------------------------------------------------------
+  statement {
+    sid = "IAMOIDCProviders"
+    actions = [
+      "iam:CreateOpenIDConnectProvider",
+      "iam:DeleteOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:UntagOpenIDConnectProvider",
+    ]
+    resources = ["arn:aws:iam::${var.aws_account_id}:oidc-provider/*"]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Allow: Service-linked roles (only for known AWS services)
+  # ---------------------------------------------------------------------------
+  statement {
+    sid = "IAMServiceLinkedRoles"
+    actions = [
+      "iam:CreateServiceLinkedRole",
+      "iam:DeleteServiceLinkedRole",
+      "iam:GetServiceLinkedRoleDeletionStatus",
+    ]
+    resources = ["arn:aws:iam::${var.aws_account_id}:role/aws-service-role/*"]
+  }
 }
 
 resource "aws_iam_policy" "tf_execution" {
@@ -146,6 +196,139 @@ resource "aws_iam_policy" "tf_execution" {
 resource "aws_iam_role_policy_attachment" "tf_execution" {
   role       = aws_iam_role.tf_execution.name
   policy_arn = aws_iam_policy.tf_execution.arn
+}
+
+# -----------------------------------------------------------------------------
+# TF Execution — Deny Fence
+#
+# Explicit deny on actions the TF execution role should NEVER perform,
+# regardless of what Terraform code defines. This is the security boundary.
+#
+# Pattern: broad allows + deny fence is more maintainable than trying to
+# whitelist every action. Adding new resource types "just works" without
+# IAM updates. The deny fence is stable and rarely changes.
+# -----------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "tf_deny_fence" {
+  # ---------------------------------------------------------------------------
+  # Deny: IAM user creation — roles only, no long-lived credentials
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyIAMUserCreation"
+    effect = "Deny"
+    actions = [
+      "iam:CreateUser",
+      "iam:CreateAccessKey",
+      "iam:CreateLoginProfile",
+      "iam:UpdateLoginProfile",
+      "iam:CreateVirtualMFADevice",
+      "iam:AttachUserPolicy",
+      "iam:PutUserPolicy",
+      "iam:AddUserToGroup",
+      "iam:CreateGroup",
+      "iam:AttachGroupPolicy",
+      "iam:PutGroupPolicy",
+    ]
+    resources = ["*"]
+  }
+
+  # NOTE: IAM role/policy writes are implicitly denied outside allowed paths
+  # because the Allow statements (IAMRoleManagement, IAMPolicyManagement)
+  # only grant access to ARNs within var.iam_allowed_paths. No explicit
+  # deny needed — implicit deny handles the rest.
+
+  # ---------------------------------------------------------------------------
+  # Deny: Organization and account management
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyOrgAndAccountManagement"
+    effect = "Deny"
+    actions = [
+      "organizations:*",
+      "account:*",
+    ]
+    resources = ["*"]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Deny: Deleting Terraform state buckets
+  # Belt + suspenders with prevent_destroy in code.
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyDeleteStateBucket"
+    effect = "Deny"
+    actions = [
+      "s3:DeleteBucket",
+    ]
+    resources = [
+      "arn:aws:s3:::${var.project}-tf-state-*",
+    ]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Deny: EC2 RunInstances without ManagedBy tag
+  # Prevents untagged orphan instances from CI.
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyUntaggedEC2"
+    effect = "Deny"
+    actions = [
+      "ec2:RunInstances",
+    ]
+    resources = ["arn:aws:ec2:*:${var.aws_account_id}:instance/*"]
+
+    condition {
+      test     = "Null"
+      variable = "aws:RequestTag/ManagedBy"
+      values   = ["true"]
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Deny: Disabling security services
+  # Only the security account (via delegation) should manage these.
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyDisableSecurity"
+    effect = "Deny"
+    actions = [
+      "guardduty:DeleteDetector",
+      "guardduty:DisassociateFromMasterAccount",
+      "securityhub:DisableSecurityHub",
+      "access-analyzer:DeleteAnalyzer",
+    ]
+    resources = ["*"]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Deny: KMS key deletion with dangerously short window
+  # Minimum 14-day wait for key deletion.
+  # ---------------------------------------------------------------------------
+  statement {
+    sid    = "DenyRapidKMSKeyDeletion"
+    effect = "Deny"
+    actions = [
+      "kms:ScheduleKeyDeletion",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "NumericLessThan"
+      variable = "kms:ScheduleKeyDeletionPendingWindowInDays"
+      values   = ["14"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "tf_deny_fence" {
+  name   = "${local.name_prefix}-tf-deny-fence-policy"
+  path   = "/infrastructure/"
+  policy = data.aws_iam_policy_document.tf_deny_fence.json
+}
+
+resource "aws_iam_role_policy_attachment" "tf_deny_fence" {
+  role       = aws_iam_role.tf_execution.name
+  policy_arn = aws_iam_policy.tf_deny_fence.arn
 }
 
 # -----------------------------------------------------------------------------

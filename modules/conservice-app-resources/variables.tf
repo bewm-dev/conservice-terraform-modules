@@ -7,6 +7,16 @@ variable "app_name" {
   type        = string
 }
 
+variable "project" {
+  description = "Project name for S3 bucket and Secrets Manager naming (e.g., 'conservice')"
+  type        = string
+}
+
+variable "resource_prefix" {
+  description = "Short prefix for workload resource naming (e.g., 'csvc')"
+  type        = string
+}
+
 variable "env" {
   description = "Environment: dev, stg, prod, plat"
   type        = string

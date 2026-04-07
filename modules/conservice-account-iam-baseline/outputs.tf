@@ -7,6 +7,11 @@ output "tf_execution_role_arn" {
   value       = aws_iam_role.tf_execution.arn
 }
 
+output "tf_deny_fence_policy_arn" {
+  description = "ARN of the deny fence policy attached to the TF execution role"
+  value       = aws_iam_policy.tf_deny_fence.arn
+}
+
 output "eks_cluster_role_arn" {
   description = "ARN of the EKS cluster IAM role"
   value       = aws_iam_role.eks_cluster.arn
