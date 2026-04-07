@@ -27,7 +27,7 @@ resource "temporalcloud_namespace" "this" {
   retention_days = var.retention_days
   api_key_auth   = var.api_key_auth
 
-  namespace_lifecycle {
+  namespace_lifecycle = {
     enable_delete_protection = var.enable_delete_protection
   }
 }
@@ -58,7 +58,7 @@ resource "temporalcloud_service_account" "this" {
   name        = "${local.namespace_name}-worker"
   description = "Service account for ${var.app_name} workers in ${var.env}"
 
-  namespace_scoped_access {
+  namespace_scoped_access = {
     namespace_id = temporalcloud_namespace.this.id
     permission   = var.service_account_permission
   }
