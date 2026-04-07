@@ -22,9 +22,9 @@ variable "env" {
 # -----------------------------------------------------------------------------
 
 variable "regions" {
-  description = "Temporal Cloud regions for the namespace (e.g., [\"us-east-1\"])"
+  description = "Temporal Cloud regions for the namespace (e.g., [\"aws-us-east-1\"]). Requires cloud provider prefix."
   type        = list(string)
-  default     = ["us-east-1"]
+  default     = ["aws-us-east-1"]
 }
 
 variable "retention_days" {

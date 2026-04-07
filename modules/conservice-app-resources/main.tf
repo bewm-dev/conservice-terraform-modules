@@ -219,7 +219,7 @@ module "temporal" {
 
   app_name       = local.app_name
   env            = var.env
-  regions        = lookup(local.temporal, "regions", ["us-east-1"])
+  regions        = lookup(local.temporal, "regions", ["aws-us-east-1"])
   retention_days = lookup(local.temporal, "retention_days", 30)
   api_key_auth   = lookup(local.temporal, "api_key_auth", true)
 
