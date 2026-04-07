@@ -82,6 +82,23 @@ resource "temporalcloud_apikey" "this" {
 # Secret name: temporal/{app_name}-{env}/api-key
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# API Key Expiry Warning
+#
+# Fires on every plan/apply when the key is within 30 days of expiry.
+# Non-blocking (warning, not error) — gives you time to rotate.
+# -----------------------------------------------------------------------------
+
+check "api_key_expiry" {
+  assert {
+    condition = (
+      var.api_key_expiry == "" ||
+      timecmp(plantimestamp(), timeadd(var.api_key_expiry, "-720h")) < 0
+    )
+    error_message = "Temporal API key for ${local.namespace_name} expires within 30 days (${var.api_key_expiry}). Rotate it."
+  }
+}
+
 resource "aws_secretsmanager_secret" "api_key" {
   count = var.create_service_account && var.api_key_expiry != "" && var.store_api_key_in_secrets_manager ? 1 : 0
 
