@@ -125,13 +125,10 @@ resource "aws_sqs_queue" "queues" {
   message_retention_seconds  = lookup(each.value, "retention_seconds", 345600) # 4 days
   sqs_managed_sse_enabled    = true
 
-  dynamic "redrive_policy" {
-    for_each = lookup(each.value, "dlq", true) ? [1] : []
-    content {
-      dead_letter_target_arn = aws_sqs_queue.dlqs[each.key].arn
-      max_receive_count      = lookup(each.value, "max_receive_count", 5)
-    }
-  }
+  redrive_policy = lookup(each.value, "dlq", true) ? jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.dlqs[each.key].arn
+    maxReceiveCount     = lookup(each.value, "max_receive_count", 5)
+  }) : null
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-${each.key}-queue"
