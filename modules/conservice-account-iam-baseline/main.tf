@@ -50,7 +50,7 @@ data "aws_iam_policy_document" "tf_execution_trust" {
     for_each = length(var.ci_trusted_arns) > 0 ? [1] : []
 
     content {
-      actions = ["sts:AssumeRole"]
+      actions = ["sts:AssumeRole", "sts:TagSession"]
 
       principals {
         type        = "AWS"
