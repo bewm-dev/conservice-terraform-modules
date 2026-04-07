@@ -190,6 +190,8 @@ module "databases" {
 
   app_permissions  = lookup(each.value, "app_permissions", ["SELECT", "INSERT", "UPDATE", "DELETE"])
   team_permissions = lookup(each.value, "team_permissions", ["SELECT"])
+  admin_groups     = lookup(each.value, "admin_groups", [])
+  readonly_groups  = lookup(each.value, "readonly_groups", [])
   admin_users      = lookup(each.value, "admin_users", [])
   readonly_users   = lookup(each.value, "readonly_users", [])
   connection_limit = lookup(each.value, "connection_limit", -1)

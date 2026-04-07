@@ -6,7 +6,8 @@
 # uses the defaults from infra.yaml.
 # =============================================================================
 
-# Example: add admin access in prod only
+# Example: restrict prod admin to a specific group
 # databases:
 #   my_app:
-#     admin_users: [shawnpetersen, jane.smith]
+#     admin_groups: [aws-db-billing-admin]
+#     admin_users: [shawnpetersen]             # break-glass individual access

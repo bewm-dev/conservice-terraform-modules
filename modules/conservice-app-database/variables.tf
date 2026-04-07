@@ -40,14 +40,26 @@ variable "additional_readonly_roles" {
   default     = []
 }
 
+variable "admin_groups" {
+  description = "Identity Center group names for admin access. Each group becomes a shared PostgreSQL role with full database access via IAM auth."
+  type        = list(string)
+  default     = []
+}
+
+variable "readonly_groups" {
+  description = "Identity Center group names for read-only access. Each group becomes a shared PostgreSQL role with SELECT-only access via IAM auth."
+  type        = list(string)
+  default     = []
+}
+
 variable "admin_users" {
-  description = "Individual admin users (Google identity usernames). Each gets a personal login with full database access."
+  description = "Individual admin users (Google identity usernames). Each gets a personal login with full database access. Prefer admin_groups for team access."
   type        = list(string)
   default     = []
 }
 
 variable "readonly_users" {
-  description = "Individual read-only users (Google identity usernames). Each gets a personal login with SELECT-only access."
+  description = "Individual read-only users (Google identity usernames). Each gets a personal login with SELECT-only access. Prefer readonly_groups for team access."
   type        = list(string)
   default     = []
 }

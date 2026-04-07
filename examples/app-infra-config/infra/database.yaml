@@ -7,5 +7,7 @@ databases:
     extensions:
       - pgcrypto
       - uuid-ossp
-    admin_users:
-      - shawnpetersen
+    admin_groups:
+      - aws-db-billing-admin
+    readonly_groups:
+      - aws-db-billing-ro

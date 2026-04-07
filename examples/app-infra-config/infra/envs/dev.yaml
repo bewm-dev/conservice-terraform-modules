@@ -4,7 +4,6 @@
 databases:
   billing_events:
     admin_users:
-      - shawnpetersen
-      - aarondavis
+      - shawnpetersen         # individual break-glass access
     readonly_users:
-      - jaren.damm
+      - jaren.damm            # individual read-only access

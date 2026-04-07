@@ -171,7 +171,70 @@ resource "postgresql_default_privileges" "additional_readers_tables" {
 }
 
 # -----------------------------------------------------------------------------
+# Admin Groups (Identity Center group → IAM auth)
+# -----------------------------------------------------------------------------
+
+resource "postgresql_role" "admin_groups" {
+  for_each = toset(var.admin_groups)
+
+  name    = each.key
+  login   = true
+  inherit = true
+  roles   = [postgresql_role.service.name, "rds_iam"]
+
+  skip_reassign_owned = true
+}
+
+# -----------------------------------------------------------------------------
+# Read-Only Groups (Identity Center group → IAM auth)
+# -----------------------------------------------------------------------------
+
+resource "postgresql_role" "readonly_groups" {
+  for_each = toset(var.readonly_groups)
+
+  name    = each.key
+  login   = true
+  inherit = true
+  roles   = ["rds_iam"]
+
+  skip_reassign_owned = true
+}
+
+resource "postgresql_grant" "readonly_groups_schema" {
+  for_each = toset(var.readonly_groups)
+
+  role        = postgresql_role.readonly_groups[each.key].name
+  database    = postgresql_database.this.name
+  schema      = "public"
+  object_type = "schema"
+  privileges  = ["USAGE"]
+}
+
+resource "postgresql_grant" "readonly_groups_tables" {
+  for_each = toset(var.readonly_groups)
+
+  role        = postgresql_role.readonly_groups[each.key].name
+  database    = postgresql_database.this.name
+  schema      = "public"
+  object_type = "table"
+  privileges  = ["SELECT"]
+}
+
+resource "postgresql_default_privileges" "readonly_groups_tables" {
+  for_each = toset(var.readonly_groups)
+
+  role     = postgresql_role.readonly_groups[each.key].name
+  database = postgresql_database.this.name
+  schema   = "public"
+  owner    = postgresql_role.service.name
+
+  object_type = "table"
+  privileges  = ["SELECT"]
+}
+
+# -----------------------------------------------------------------------------
 # Individual Admin Users (Google identity → IAM auth)
+# Escape hatch for one-off access (break-glass, contractors). Prefer groups.
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "admin_users" {
@@ -187,6 +250,7 @@ resource "postgresql_role" "admin_users" {
 
 # -----------------------------------------------------------------------------
 # Individual Read-Only Users (Google identity → IAM auth)
+# Escape hatch for one-off access. Prefer groups.
 # -----------------------------------------------------------------------------
 
 resource "postgresql_role" "readonly_users" {

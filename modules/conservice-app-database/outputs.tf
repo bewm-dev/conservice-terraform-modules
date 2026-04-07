@@ -18,6 +18,16 @@ output "additional_reader_role_names" {
   value       = [for name, role in postgresql_role.additional_readers : role.name]
 }
 
+output "admin_group_names" {
+  description = "Names of admin group roles"
+  value       = [for name, role in postgresql_role.admin_groups : role.name]
+}
+
+output "readonly_group_names" {
+  description = "Names of read-only group roles"
+  value       = [for name, role in postgresql_role.readonly_groups : role.name]
+}
+
 output "admin_user_names" {
   description = "Names of individual admin user roles"
   value       = [for name, role in postgresql_role.admin_users : role.name]
@@ -34,6 +44,8 @@ output "all_iam_role_names" {
     [postgresql_role.service.name],
     var.team_role != "" ? [postgresql_role.team[0].name] : [],
     [for name, role in postgresql_role.additional_readers : role.name],
+    [for name, role in postgresql_role.admin_groups : role.name],
+    [for name, role in postgresql_role.readonly_groups : role.name],
     [for name, role in postgresql_role.admin_users : role.name],
     [for name, role in postgresql_role.readonly_users : role.name],
   )

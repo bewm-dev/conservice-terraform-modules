@@ -26,8 +26,10 @@ portfolio: billing
 #     service_role: my-app-svc                # IAM role for app pods (auto-created)
 #     team_role: my-team-read                 # optional: read-only role for your team
 #     extensions: [pgcrypto, uuid-ossp]       # optional: PostgreSQL extensions
-#     admin_users: [jane.smith]               # optional: individual admin access (Google username)
-#     readonly_users: [bob.jones]             # optional: individual read-only access
+#     admin_groups: [aws-db-billing-admin]    # optional: Identity Center group with admin access (preferred)
+#     readonly_groups: [aws-db-billing-ro]    # optional: Identity Center group with read-only access (preferred)
+#     admin_users: [jane.smith]               # optional: individual admin access (Google username, escape hatch)
+#     readonly_users: [bob.jones]             # optional: individual read-only access (Google username, escape hatch)
 
 # -----------------------------------------------------------------------------
 # S3 Buckets — KMS encrypted, public access blocked, versioning on by default
