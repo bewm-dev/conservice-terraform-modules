@@ -414,7 +414,9 @@ locals {
 data "aws_iam_policy_document" "ci_trust" {
   count = local.create_ci_role ? 1 : 0
 
-  # Trust the org-level GitHub OIDC role to assume this role
+  # Trust the org-level GitHub OIDC role to assume this role.
+  # Repo-level scoping is handled by the OIDC role's trust policy (sub claim).
+  # Session tags are NOT available with OIDC — do not condition on PrincipalTag.
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole", "sts:TagSession"]
@@ -422,13 +424,6 @@ data "aws_iam_policy_document" "ci_trust" {
     principals {
       type        = "AWS"
       identifiers = [var.github_oidc_provider_arn]
-    }
-
-    # Scope to this specific repo on main branch
-    condition {
-      test     = "StringEquals"
-      variable = "aws:PrincipalTag/Repository"
-      values   = ["${local.ci_github_org}/${local.ci_repo_name}"]
     }
   }
 }
