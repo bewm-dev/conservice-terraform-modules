@@ -29,32 +29,33 @@ locals {
   app_role_prefix = "${var.resource_prefix}-${var.env}-${local.region_code}-app-${var.app_name}"
 
   # ---------------------------------------------------------------------------
-  # YAML config reading — single file + optional env override
+  # Config source: HCL variables (config_path = null) or YAML file
   # ---------------------------------------------------------------------------
 
-  config = yamldecode(file("${var.config_path}/infra.yaml"))
+  use_yaml = var.config_path != null
 
-  env_override_path = "${var.config_path}/envs/${var.env}.yaml"
-  has_env_override  = fileexists(local.env_override_path)
+  config = local.use_yaml ? yamldecode(file("${var.config_path}/infra.yaml")) : {}
+
+  env_override_path = local.use_yaml ? "${var.config_path}/envs/${var.env}.yaml" : ""
+  has_env_override  = local.use_yaml && fileexists(local.env_override_path)
   env_override      = local.has_env_override ? yamldecode(file(local.env_override_path)) : {}
 
-  # Merge: infra.yaml defaults ← env override (env wins for each resource type)
-  buckets      = lookup(local.env_override, "buckets", lookup(local.config, "buckets", {}))
-  queues       = lookup(local.env_override, "queues", lookup(local.config, "queues", {}))
-  topics       = lookup(local.env_override, "topics", lookup(local.config, "topics", {}))
-  databases    = lookup(local.env_override, "databases", lookup(local.config, "databases", {}))
-  secrets      = lookup(local.env_override, "secrets", lookup(local.config, "secrets", {}))
-  pod_identity = lookup(local.config, "pod_identity", null)
-  ci_role      = lookup(local.config, "ci_role", null)
+  # HCL vars take effect when config_path is null; YAML takes effect when set
+  buckets      = local.use_yaml ? lookup(local.env_override, "buckets", lookup(local.config, "buckets", {})) : var.buckets
+  queues       = local.use_yaml ? lookup(local.env_override, "queues", lookup(local.config, "queues", {})) : var.queues
+  topics       = local.use_yaml ? lookup(local.env_override, "topics", lookup(local.config, "topics", {})) : var.topics
+  databases    = local.use_yaml ? lookup(local.env_override, "databases", lookup(local.config, "databases", {})) : var.databases
+  secrets      = local.use_yaml ? lookup(local.env_override, "secrets", lookup(local.config, "secrets", {})) : var.secrets
+  pod_identity = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
+  ci_role      = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
+  temporal     = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
 
-  # App metadata from config
-  app_name = lookup(local.config, "name", var.app_name)
+  app_name = local.use_yaml ? lookup(local.config, "name", var.app_name) : var.app_name
 
-  # Common tags
   common_tags = merge(var.tags, {
-    Team      = lookup(local.config, "team", "unknown")
-    Domain    = lookup(local.config, "domain", "unknown")
-    Portfolio = lookup(local.config, "portfolio", "unknown")
+    Team      = local.use_yaml ? lookup(local.config, "team", "unknown") : var.team
+    Domain    = local.use_yaml ? lookup(local.config, "domain", "unknown") : var.domain
+    Portfolio = local.use_yaml ? lookup(local.config, "portfolio", "unknown") : var.portfolio
     AppName   = local.app_name
     ManagedBy = "terraform"
   })
@@ -197,6 +198,43 @@ module "databases" {
   connection_limit = lookup(each.value, "connection_limit", -1)
 
   additional_readonly_roles = lookup(each.value, "additional_readonly_roles", [])
+}
+
+# -----------------------------------------------------------------------------
+# Temporal Cloud — namespace, search attributes, service account + API key
+#
+# Creates a per-app Temporal Cloud namespace when temporal block is present.
+# Calls the conservice-temporal sub-module.
+# -----------------------------------------------------------------------------
+
+locals {
+  create_temporal = local.temporal != null
+
+  temporal_search_attributes = local.create_temporal ? lookup(local.temporal, "search_attributes", {}) : {}
+}
+
+module "temporal" {
+  source = "../conservice-temporal"
+  count  = local.create_temporal ? 1 : 0
+
+  app_name       = local.app_name
+  env            = var.env
+  regions        = lookup(local.temporal, "regions", ["us-east-1"])
+  retention_days = lookup(local.temporal, "retention_days", 30)
+  api_key_auth   = lookup(local.temporal, "api_key_auth", true)
+
+  enable_delete_protection = lookup(local.temporal, "enable_delete_protection", var.env == "prod")
+
+  search_attributes = local.temporal_search_attributes
+
+  create_service_account     = lookup(local.temporal, "create_service_account", true)
+  service_account_permission = lookup(local.temporal, "service_account_permission", "write")
+  api_key_expiry             = lookup(local.temporal, "api_key_expiry", "")
+
+  store_api_key_in_secrets_manager = lookup(local.temporal, "store_api_key_in_secrets_manager", true)
+  secrets_kms_key_arn              = var.kms_key_arn
+
+  tags = local.common_tags
 }
 
 # -----------------------------------------------------------------------------

@@ -86,3 +86,27 @@ output "ci_role_arn" {
   description = "IAM role ARN for app CI (GitHub Actions assumes this for plan/apply/push)"
   value       = length(aws_iam_role.ci) > 0 ? aws_iam_role.ci[0].arn : ""
 }
+
+# -----------------------------------------------------------------------------
+# Temporal
+# -----------------------------------------------------------------------------
+
+output "temporal_namespace_id" {
+  description = "Temporal Cloud namespace ID"
+  value       = length(module.temporal) > 0 ? module.temporal[0].namespace_id : ""
+}
+
+output "temporal_namespace_name" {
+  description = "Temporal Cloud namespace name"
+  value       = length(module.temporal) > 0 ? module.temporal[0].namespace_name : ""
+}
+
+output "temporal_grpc_endpoint" {
+  description = "gRPC endpoint for Temporal workers"
+  value       = length(module.temporal) > 0 ? module.temporal[0].grpc_endpoint : ""
+}
+
+output "temporal_api_key_secret_arn" {
+  description = "Secrets Manager ARN for the Temporal API key"
+  value       = length(module.temporal) > 0 ? module.temporal[0].api_key_secret_arn : ""
+}

@@ -8,13 +8,15 @@ variable "app_name" {
 }
 
 variable "project" {
-  description = "Project name for S3 bucket and Secrets Manager naming (e.g., 'conservice')"
+  description = "Project name for S3 bucket and Secrets Manager naming"
   type        = string
+  default     = "conservice"
 }
 
 variable "resource_prefix" {
-  description = "Short prefix for workload resource naming (e.g., 'csvc')"
+  description = "Short prefix for workload resource naming"
   type        = string
+  default     = "csvc"
 }
 
 variable "env" {
@@ -38,8 +40,9 @@ variable "region" {
 }
 
 variable "config_path" {
-  description = "Path to the app's infra config directory (contains base.yaml and optional resource YAML files)"
+  description = "Path to infra.yaml config directory. Set to null when using HCL variables directly."
   type        = string
+  default     = null
 }
 
 # -----------------------------------------------------------------------------
@@ -81,7 +84,7 @@ variable "enable_databases" {
 variable "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider in the org account (for CI role trust)"
   type        = string
-  default     = ""
+  default     = "arn:aws:iam::896476316505:role/ci/conservice-org-github-actions-role"
 }
 
 variable "tf_state_bucket" {
@@ -93,5 +96,77 @@ variable "tf_state_bucket" {
 variable "ecr_account_id" {
   description = "AWS account ID where ECR repos live (platform account)"
   type        = string
+  default     = "626209130023"
+}
+
+# -----------------------------------------------------------------------------
+# HCL resource inputs — use these instead of config_path/infra.yaml
+# When config_path is null, these are used directly.
+# When config_path is set, infra.yaml takes precedence.
+# -----------------------------------------------------------------------------
+
+variable "team" {
+  description = "Team name for tagging"
+  type        = string
   default     = ""
+}
+
+variable "domain" {
+  description = "Domain name for tagging"
+  type        = string
+  default     = ""
+}
+
+variable "portfolio" {
+  description = "Portfolio name for tagging"
+  type        = string
+  default     = ""
+}
+
+variable "databases" {
+  description = "Map of databases to create in shared Aurora cluster"
+  type        = any
+  default     = {}
+}
+
+variable "buckets" {
+  description = "Map of S3 buckets to create"
+  type        = any
+  default     = {}
+}
+
+variable "queues" {
+  description = "Map of SQS queues to create"
+  type        = any
+  default     = {}
+}
+
+variable "topics" {
+  description = "Map of SNS topics to create"
+  type        = any
+  default     = {}
+}
+
+variable "secrets" {
+  description = "Map of Secrets Manager secrets to create"
+  type        = any
+  default     = {}
+}
+
+variable "pod_identity" {
+  description = "Pod Identity config: { namespace, service_account }. Null to skip."
+  type        = any
+  default     = null
+}
+
+variable "ci_role" {
+  description = "CI role config: { github_org, repo_name }. Null to skip."
+  type        = any
+  default     = null
+}
+
+variable "temporal" {
+  description = "Temporal Cloud config: { regions, retention_days, search_attributes, api_key_expiry, ... }. Null to skip."
+  type        = any
+  default     = null
 }
