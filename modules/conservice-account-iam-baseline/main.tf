@@ -43,6 +43,21 @@ data "aws_iam_policy_document" "tf_execution_trust" {
       }
     }
   }
+
+  # CI/CD role trust — allows GitHub Actions OIDC role (or similar) to assume
+  # the TF execution role directly for automated infrastructure deployments.
+  dynamic "statement" {
+    for_each = length(var.ci_trusted_arns) > 0 ? [1] : []
+
+    content {
+      actions = ["sts:AssumeRole"]
+
+      principals {
+        type        = "AWS"
+        identifiers = var.ci_trusted_arns
+      }
+    }
+  }
 }
 
 resource "aws_iam_role" "tf_execution" {

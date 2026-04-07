@@ -49,6 +49,12 @@ variable "role_type" {
   }
 }
 
+variable "ci_trusted_arns" {
+  description = "Additional IAM role ARNs trusted to assume the TF execution role (e.g. GitHub Actions OIDC role)"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_aurora_role" {
   description = "Create the Aurora access IAM role"
   type        = bool
