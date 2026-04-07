@@ -29,9 +29,18 @@ resource "postgresql_database" "this" {
 resource "postgresql_role" "service" {
   name  = var.service_role
   login = true
-  roles = ["rds_iam"]
 
   skip_reassign_owned = true
+}
+
+# Grant rds_iam AFTER database creation. The provider temporarily grants the
+# DB owner role to itself for CREATE DATABASE. If the owner has rds_iam,
+# the master user gets routed through PAM auth and password connections fail.
+resource "postgresql_grant_role" "service_iam" {
+  role       = postgresql_role.service.name
+  grant_role = "rds_iam"
+
+  depends_on = [postgresql_database.this]
 }
 
 resource "postgresql_grant" "service_schema" {
@@ -87,9 +96,17 @@ resource "postgresql_role" "team" {
 
   name  = var.team_role
   login = true
-  roles = ["rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "team_iam" {
+  count = var.team_role != "" ? 1 : 0
+
+  role       = postgresql_role.team[0].name
+  grant_role = "rds_iam"
+
+  depends_on = [postgresql_database.this]
 }
 
 resource "postgresql_grant" "team_schema" {
@@ -133,9 +150,15 @@ resource "postgresql_role" "additional_readers" {
 
   name  = each.key
   login = true
-  roles = ["rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "additional_readers_iam" {
+  for_each = toset(var.additional_readonly_roles)
+
+  role       = postgresql_role.additional_readers[each.key].name
+  grant_role = "rds_iam"
 }
 
 resource "postgresql_grant" "additional_readers_schema" {
@@ -180,9 +203,22 @@ resource "postgresql_role" "admin_groups" {
   name    = each.key
   login   = true
   inherit = true
-  roles   = [postgresql_role.service.name, "rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "admin_groups_service" {
+  for_each = toset(var.admin_groups)
+
+  role       = postgresql_role.admin_groups[each.key].name
+  grant_role = postgresql_role.service.name
+}
+
+resource "postgresql_grant_role" "admin_groups_iam" {
+  for_each = toset(var.admin_groups)
+
+  role       = postgresql_role.admin_groups[each.key].name
+  grant_role = "rds_iam"
 }
 
 # -----------------------------------------------------------------------------
@@ -195,9 +231,15 @@ resource "postgresql_role" "readonly_groups" {
   name    = each.key
   login   = true
   inherit = true
-  roles   = ["rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "readonly_groups_iam" {
+  for_each = toset(var.readonly_groups)
+
+  role       = postgresql_role.readonly_groups[each.key].name
+  grant_role = "rds_iam"
 }
 
 resource "postgresql_grant" "readonly_groups_schema" {
@@ -243,9 +285,22 @@ resource "postgresql_role" "admin_users" {
   name    = each.key
   login   = true
   inherit = true
-  roles   = [postgresql_role.service.name, "rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "admin_users_service" {
+  for_each = toset(var.admin_users)
+
+  role       = postgresql_role.admin_users[each.key].name
+  grant_role = postgresql_role.service.name
+}
+
+resource "postgresql_grant_role" "admin_users_iam" {
+  for_each = toset(var.admin_users)
+
+  role       = postgresql_role.admin_users[each.key].name
+  grant_role = "rds_iam"
 }
 
 # -----------------------------------------------------------------------------
@@ -259,9 +314,15 @@ resource "postgresql_role" "readonly_users" {
   name    = each.key
   login   = true
   inherit = true
-  roles   = ["rds_iam"]
 
   skip_reassign_owned = true
+}
+
+resource "postgresql_grant_role" "readonly_users_iam" {
+  for_each = toset(var.readonly_users)
+
+  role       = postgresql_role.readonly_users[each.key].name
+  grant_role = "rds_iam"
 }
 
 resource "postgresql_grant" "readonly_users_schema" {
