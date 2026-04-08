@@ -1,7 +1,0 @@
-# Production environment overrides.
-# Only include sections that differ from infra.yaml defaults.
-
-# Example: restrict prod admin access to specific groups
-# databases:
-#   my_app:
-#     admin_groups: [aws-db-billing-admin]

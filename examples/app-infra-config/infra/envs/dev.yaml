@@ -1,9 +1,0 @@
-# Dev environment overrides.
-# Only include sections that differ from infra.yaml defaults.
-
-databases:
-  my_app:
-    admin_users:
-      - jane.smith        # individual break-glass access
-    readonly_users:
-      - bob.jones         # individual read-only access
