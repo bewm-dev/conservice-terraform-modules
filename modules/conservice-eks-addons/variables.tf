@@ -87,6 +87,12 @@ variable "route53_zone_ids" {
   }
 }
 
+variable "route53_cross_account_role_arn" {
+  description = "IAM role ARN in the DNS account for ExternalDNS cross-account Route53 access. Empty = same account."
+  type        = string
+  default     = ""
+}
+
 variable "secrets_kms_key_arns" {
   description = "KMS key ARNs used to encrypt Secrets Manager secrets. ESO needs kms:Decrypt to read secret values."
   type        = list(string)

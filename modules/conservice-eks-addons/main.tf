@@ -398,6 +398,15 @@ data "aws_iam_policy_document" "external_dns" {
     ]
     resources = ["*"]
   }
+
+  dynamic "statement" {
+    for_each = var.route53_cross_account_role_arn != "" ? [1] : []
+    content {
+      effect    = "Allow"
+      actions   = ["sts:AssumeRole"]
+      resources = [var.route53_cross_account_role_arn]
+    }
+  }
 }
 
 # =============================================================================
