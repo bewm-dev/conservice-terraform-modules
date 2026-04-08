@@ -403,7 +403,7 @@ data "aws_iam_policy_document" "external_dns" {
     for_each = var.route53_cross_account_role_arn != "" ? [1] : []
     content {
       effect    = "Allow"
-      actions   = ["sts:AssumeRole"]
+      actions   = ["sts:AssumeRole", "sts:TagSession"]
       resources = [var.route53_cross_account_role_arn]
     }
   }
