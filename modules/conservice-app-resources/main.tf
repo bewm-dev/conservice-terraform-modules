@@ -165,12 +165,12 @@ resource "aws_sns_topic" "topics" {
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = local.secrets
 
-  name        = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+  name        = "${var.app_name}/${each.key}"
   description = lookup(each.value, "description", "Secret for ${var.app_name}")
   kms_key_id  = var.kms_key_arn
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+    Name = "${var.app_name}/${each.key}"
   })
 }
 
