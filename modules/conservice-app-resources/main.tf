@@ -189,35 +189,15 @@ resource "aws_secretsmanager_secret" "secrets" {
 
 locals {
   # Manual values: REPLACE_ME placeholders
-  manual_config = { for k in var.app_config_keys : k => "REPLACE_ME" }
-  create_manual = length(var.app_config_keys) > 0
-
-  # TF-computed: database connection string (IAM auth — no password)
-  db_config = (
-    length(local.databases) > 0 && var.aurora_cluster_endpoint != ""
-    ? { DATABASE_URL = "postgresql://${values(module.databases)[0].service_role_name}@${var.aurora_cluster_endpoint}:5432/${keys(local.databases)[0]}?sslmode=require" }
-    : {}
-  )
-
-  # TF-computed: Temporal Cloud API key
-  temporal_config = (
-    local.create_temporal
-    ? { TEMPORAL_CLOUD_API_KEY = module.temporal[0].api_key_value }
-    : {}
-  )
-
-  computed_config   = merge(local.db_config, local.temporal_config)
-  create_computed   = length(local.computed_config) > 0
-  create_app_config = local.create_manual || local.create_computed
+  manual_config     = { for k in var.app_config_keys : k => "REPLACE_ME" }
+  create_app_config = length(var.app_config_keys) > 0
 }
 
-# --- Manual values: {app}/config ---
-
 resource "aws_secretsmanager_secret" "app_config" {
-  count = local.create_manual ? 1 : 0
+  count = local.create_app_config ? 1 : 0
 
   name        = "${var.app_name}/config"
-  description = "Manual configuration for ${var.app_name} (API keys, OAuth creds)"
+  description = "Application secrets for ${var.app_name} (manual values — populate after apply)"
   kms_key_id  = var.kms_key_arn
 
   tags = merge(local.common_tags, {
@@ -226,7 +206,7 @@ resource "aws_secretsmanager_secret" "app_config" {
 }
 
 resource "aws_secretsmanager_secret_version" "app_config" {
-  count = local.create_manual ? 1 : 0
+  count = local.create_app_config ? 1 : 0
 
   secret_id     = aws_secretsmanager_secret.app_config[0].id
   secret_string = jsonencode(local.manual_config)
@@ -234,27 +214,6 @@ resource "aws_secretsmanager_secret_version" "app_config" {
   lifecycle {
     ignore_changes = [secret_string]
   }
-}
-
-# --- TF-managed values: {app}/computed ---
-
-resource "aws_secretsmanager_secret" "app_computed" {
-  count = local.create_computed ? 1 : 0
-
-  name        = "${var.app_name}/computed"
-  description = "TF-managed configuration for ${var.app_name} (database URL, Temporal key)"
-  kms_key_id  = var.kms_key_arn
-
-  tags = merge(local.common_tags, {
-    Name = "${var.app_name}/computed"
-  })
-}
-
-resource "aws_secretsmanager_secret_version" "app_computed" {
-  count = local.create_computed ? 1 : 0
-
-  secret_id     = aws_secretsmanager_secret.app_computed[0].id
-  secret_string = jsonencode(local.computed_config)
 }
 
 # -----------------------------------------------------------------------------
@@ -371,11 +330,10 @@ locals {
     resources = [for k, v in aws_sns_topic.topics : v.arn]
   }] : []
 
-  # Collect all module-managed secret ARNs: explicit secrets + config + computed + temporal
+  # Collect all module-managed secret ARNs: explicit secrets + config + temporal
   all_secret_arns = concat(
     [for k, v in aws_secretsmanager_secret.secrets : v.arn],
     length(aws_secretsmanager_secret.app_config) > 0 ? [aws_secretsmanager_secret.app_config[0].arn] : [],
-    length(aws_secretsmanager_secret.app_computed) > 0 ? [aws_secretsmanager_secret.app_computed[0].arn] : [],
     length(module.temporal) > 0 && module.temporal[0].api_key_secret_arn != "" ? [module.temporal[0].api_key_secret_arn] : [],
   )
 
