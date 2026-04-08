@@ -175,24 +175,22 @@ resource "aws_secretsmanager_secret" "secrets" {
 }
 
 # -----------------------------------------------------------------------------
-# App Config Secret — {app}/config
+# App Secrets — two secrets, one k8s Secret
 #
-# Single JSON secret per app. Contains ALL values the app needs:
-#   - TF-computed: DATABASE_URL (from Aurora endpoint + db name),
-#     TEMPORAL_CLOUD_API_KEY (from temporal sub-module)
-#   - Manual: REPLACE_ME placeholders for app_config_keys
+# {app}/config   — manual values (API keys, OAuth creds). ignore_changes
+#                  prevents TF from overwriting. Seeded with REPLACE_ME.
+# {app}/computed — TF-managed values (DATABASE_URL, TEMPORAL_CLOUD_API_KEY).
+#                  No ignore_changes — TF always writes current values.
 #
-# ESO uses dataFrom.extract to sync the entire JSON into a k8s Secret.
-# Adding/removing keys in Secrets Manager requires no ExternalSecret changes.
-#
-# ignore_changes on secret_string prevents TF from overwriting manual edits.
-# TF-computed values are seeded on first apply; manual rotation of Aurora
-# endpoints or Temporal keys requires updating the secret value directly.
+# ESO uses two dataFrom.extract entries that merge into one k8s Secret.
+# Pods see one flat set of env vars. Adding/removing keys in either
+# Secrets Manager secret requires no ExternalSecret changes.
 # -----------------------------------------------------------------------------
 
 locals {
   # Manual values: REPLACE_ME placeholders
   manual_config = { for k in var.app_config_keys : k => "REPLACE_ME" }
+  create_manual = length(var.app_config_keys) > 0
 
   # TF-computed: database connection string (IAM auth — no password)
   db_config = (
@@ -208,16 +206,18 @@ locals {
     : {}
   )
 
-  # Combined config — TF values override manual placeholders if keys collide
-  app_config_json   = merge(local.manual_config, local.db_config, local.temporal_config)
-  create_app_config = length(local.app_config_json) > 0
+  computed_config   = merge(local.db_config, local.temporal_config)
+  create_computed   = length(local.computed_config) > 0
+  create_app_config = local.create_manual || local.create_computed
 }
 
+# --- Manual values: {app}/config ---
+
 resource "aws_secretsmanager_secret" "app_config" {
-  count = local.create_app_config ? 1 : 0
+  count = local.create_manual ? 1 : 0
 
   name        = "${var.app_name}/config"
-  description = "Application configuration for ${var.app_name}"
+  description = "Manual configuration for ${var.app_name} (API keys, OAuth creds)"
   kms_key_id  = var.kms_key_arn
 
   tags = merge(local.common_tags, {
@@ -226,14 +226,35 @@ resource "aws_secretsmanager_secret" "app_config" {
 }
 
 resource "aws_secretsmanager_secret_version" "app_config" {
-  count = local.create_app_config ? 1 : 0
+  count = local.create_manual ? 1 : 0
 
   secret_id     = aws_secretsmanager_secret.app_config[0].id
-  secret_string = jsonencode(local.app_config_json)
+  secret_string = jsonencode(local.manual_config)
 
   lifecycle {
     ignore_changes = [secret_string]
   }
+}
+
+# --- TF-managed values: {app}/computed ---
+
+resource "aws_secretsmanager_secret" "app_computed" {
+  count = local.create_computed ? 1 : 0
+
+  name        = "${var.app_name}/computed"
+  description = "TF-managed configuration for ${var.app_name} (database URL, Temporal key)"
+  kms_key_id  = var.kms_key_arn
+
+  tags = merge(local.common_tags, {
+    Name = "${var.app_name}/computed"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "app_computed" {
+  count = local.create_computed ? 1 : 0
+
+  secret_id     = aws_secretsmanager_secret.app_computed[0].id
+  secret_string = jsonencode(local.computed_config)
 }
 
 # -----------------------------------------------------------------------------
@@ -350,10 +371,11 @@ locals {
     resources = [for k, v in aws_sns_topic.topics : v.arn]
   }] : []
 
-  # Collect all module-managed secret ARNs: explicit secrets + app_config + temporal API key
+  # Collect all module-managed secret ARNs: explicit secrets + config + computed + temporal
   all_secret_arns = concat(
     [for k, v in aws_secretsmanager_secret.secrets : v.arn],
     length(aws_secretsmanager_secret.app_config) > 0 ? [aws_secretsmanager_secret.app_config[0].arn] : [],
+    length(aws_secretsmanager_secret.app_computed) > 0 ? [aws_secretsmanager_secret.app_computed[0].arn] : [],
     length(module.temporal) > 0 && module.temporal[0].api_key_secret_arn != "" ? [module.temporal[0].api_key_secret_arn] : [],
   )
 

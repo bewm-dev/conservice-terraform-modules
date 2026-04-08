@@ -64,6 +64,16 @@ output "app_config_secret_name" {
   value       = length(aws_secretsmanager_secret.app_config) > 0 ? aws_secretsmanager_secret.app_config[0].name : ""
 }
 
+output "app_computed_secret_arn" {
+  description = "Secrets Manager ARN for {app}/computed (TF-managed values)"
+  value       = length(aws_secretsmanager_secret.app_computed) > 0 ? aws_secretsmanager_secret.app_computed[0].arn : ""
+}
+
+output "app_computed_secret_name" {
+  description = "Secrets Manager name for {app}/computed (TF-managed values)"
+  value       = length(aws_secretsmanager_secret.app_computed) > 0 ? aws_secretsmanager_secret.app_computed[0].name : ""
+}
+
 # -----------------------------------------------------------------------------
 # Databases
 # -----------------------------------------------------------------------------
