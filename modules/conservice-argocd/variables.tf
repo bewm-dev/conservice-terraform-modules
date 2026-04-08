@@ -31,6 +31,12 @@ variable "repo_url" {
   type        = string
 }
 
+variable "additional_source_repos" {
+  description = "Additional Git repo URLs allowed in the platform-addons AppProject (e.g., app repos)"
+  type        = list(string)
+  default     = []
+}
+
 variable "repo_target_revision" {
   description = "Git branch/tag to track for the root Application"
   type        = string

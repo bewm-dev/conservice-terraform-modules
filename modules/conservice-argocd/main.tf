@@ -119,9 +119,7 @@ resource "kubectl_manifest" "project_platform_addons" {
     }
     spec = {
       description = "Platform infrastructure addons managed by app-of-apps"
-      sourceRepos = [
-        var.repo_url,
-      ]
+      sourceRepos = concat([var.repo_url], var.additional_source_repos)
       destinations = [
         {
           namespace = "*"
