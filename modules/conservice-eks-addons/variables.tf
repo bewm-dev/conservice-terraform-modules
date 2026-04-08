@@ -72,6 +72,12 @@ variable "enable_container_insights" {
   default     = true
 }
 
+variable "enable_kargo" {
+  description = "Enable Kargo ECR image discovery (Pod Identity for kargo-controller)"
+  type        = bool
+  default     = false
+}
+
 # -----------------------------------------------------------------------------
 # Optional Configuration
 # -----------------------------------------------------------------------------

@@ -754,3 +754,68 @@ resource "aws_eks_addon" "container_insights" {
 
   tags = { Name = "${var.cluster_name}-container-insights" }
 }
+
+# =============================================================================
+# Kargo — ECR Image Discovery
+# Kargo's Warehouse needs to list/describe tags in ECR repos to discover new
+# images for promotion. Only needed on the mgmt cluster where Kargo runs.
+# =============================================================================
+
+resource "aws_iam_role" "kargo" {
+  count = var.enable_kargo ? 1 : 0
+
+  name               = "${var.cluster_name}-kargo-role"
+  path               = "/eks/"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
+  tags               = { Name = "${var.cluster_name}-kargo-role" }
+}
+
+resource "aws_iam_policy" "kargo" {
+  count = var.enable_kargo ? 1 : 0
+
+  name   = "${var.cluster_name}-kargo-policy"
+  path   = "/eks/"
+  policy = data.aws_iam_policy_document.kargo[0].json
+  tags   = { Name = "${var.cluster_name}-kargo-policy" }
+}
+
+resource "aws_iam_role_policy_attachment" "kargo" {
+  count = var.enable_kargo ? 1 : 0
+
+  role       = aws_iam_role.kargo[0].name
+  policy_arn = aws_iam_policy.kargo[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "kargo" {
+  count = var.enable_kargo ? 1 : 0
+
+  cluster_name    = var.cluster_name
+  namespace       = "argocd"
+  service_account = "kargo-controller"
+  role_arn        = aws_iam_role.kargo[0].arn
+}
+
+data "aws_iam_policy_document" "kargo" {
+  count = var.enable_kargo ? 1 : 0
+
+  # ECR auth token — required for any ECR API access
+  statement {
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  # ECR read — list and inspect image tags across all repos
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:ListImages",
+      "ecr:DescribeImages",
+      "ecr:DescribeRepositories",
+    ]
+    resources = ["arn:aws:ecr:*:${var.aws_account_id}:repository/*"]
+  }
+}
