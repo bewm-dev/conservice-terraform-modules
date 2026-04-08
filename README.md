@@ -11,7 +11,7 @@ Used by `conservice-aws-platform` account configs. These cover patterns that com
 | Module | Purpose | Used By |
 |--------|---------|---------|
 | `conservice-account-iam-baseline` | Per-account baseline IAM (TF execution, ECR pull, Aurora access roles) | All account `global/iam` |
-| `conservice-eks-addons` | Pod Identity roles for LBC, ExternalDNS, ESO, Karpenter, Container Insights | All EKS cluster configs |
+| `conservice-eks-pod-identity` | Pod Identity roles for LBC, ExternalDNS, ESO, Container Insights, Kargo | All EKS cluster configs |
 | `conservice-argocd` | ArgoCD bootstrap via Helm (minimal install + Dex SSO secrets) | Platform eks-mgmt |
 | `conservice-argocd-add-cluster` | Register remote EKS cluster with ArgoCD management cluster | Production (Phase 7.3) |
 | `conservice-vpn-peer` | Site-to-site VPN peer on Transit Gateway with ephemeral PSKs | Platform network |
