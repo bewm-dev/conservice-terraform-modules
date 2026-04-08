@@ -153,6 +153,18 @@ variable "secrets" {
   default     = {}
 }
 
+variable "app_config_keys" {
+  description = "Manual config key names for {app}/config. These get REPLACE_ME placeholders; populate real values via console/CLI after apply. Use UPPER_CASE — keys become env var names via ESO dataFrom.extract."
+  type        = list(string)
+  default     = []
+}
+
+variable "aurora_cluster_endpoint" {
+  description = "Aurora cluster writer endpoint (e.g., csvc-stg-use1-aurora.cluster-xxx.rds.amazonaws.com). When set with databases, module auto-generates DATABASE_URL in app config."
+  type        = string
+  default     = ""
+}
+
 variable "pod_identity" {
   description = "Pod Identity config: { namespace, service_account }. Null to skip."
   type        = any

@@ -54,6 +54,16 @@ output "secret_names" {
   value       = { for k, v in aws_secretsmanager_secret.secrets : k => v.name }
 }
 
+output "app_config_secret_arn" {
+  description = "Secrets Manager ARN for {app}/config (manual values)"
+  value       = length(aws_secretsmanager_secret.app_config) > 0 ? aws_secretsmanager_secret.app_config[0].arn : ""
+}
+
+output "app_config_secret_name" {
+  description = "Secrets Manager name for {app}/config (manual values)"
+  value       = length(aws_secretsmanager_secret.app_config) > 0 ? aws_secretsmanager_secret.app_config[0].name : ""
+}
+
 # -----------------------------------------------------------------------------
 # Databases
 # -----------------------------------------------------------------------------

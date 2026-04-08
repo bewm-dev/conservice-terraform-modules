@@ -159,7 +159,7 @@ resource "aws_sns_topic" "topics" {
 #
 # Creates secret containers. Values are populated via CLI or console post-apply.
 # ESO syncs these into K8s via ExternalSecret manifests (managed in k8s-apps repo).
-# Naming: conservice-{env}-{app_name}-{key}
+# Naming: {app_name}/{key}
 # -----------------------------------------------------------------------------
 
 resource "aws_secretsmanager_secret" "secrets" {
@@ -172,6 +172,68 @@ resource "aws_secretsmanager_secret" "secrets" {
   tags = merge(local.common_tags, {
     Name = "${var.app_name}/${each.key}"
   })
+}
+
+# -----------------------------------------------------------------------------
+# App Config Secret — {app}/config
+#
+# Single JSON secret per app. Contains ALL values the app needs:
+#   - TF-computed: DATABASE_URL (from Aurora endpoint + db name),
+#     TEMPORAL_CLOUD_API_KEY (from temporal sub-module)
+#   - Manual: REPLACE_ME placeholders for app_config_keys
+#
+# ESO uses dataFrom.extract to sync the entire JSON into a k8s Secret.
+# Adding/removing keys in Secrets Manager requires no ExternalSecret changes.
+#
+# ignore_changes on secret_string prevents TF from overwriting manual edits.
+# TF-computed values are seeded on first apply; manual rotation of Aurora
+# endpoints or Temporal keys requires updating the secret value directly.
+# -----------------------------------------------------------------------------
+
+locals {
+  # Manual values: REPLACE_ME placeholders
+  manual_config = { for k in var.app_config_keys : k => "REPLACE_ME" }
+
+  # TF-computed: database connection string (IAM auth — no password)
+  db_config = (
+    length(local.databases) > 0 && var.aurora_cluster_endpoint != ""
+    ? { DATABASE_URL = "postgresql://${values(module.databases)[0].service_role_name}@${var.aurora_cluster_endpoint}:5432/${keys(local.databases)[0]}?sslmode=require" }
+    : {}
+  )
+
+  # TF-computed: Temporal Cloud API key
+  temporal_config = (
+    local.create_temporal
+    ? { TEMPORAL_CLOUD_API_KEY = module.temporal[0].api_key_value }
+    : {}
+  )
+
+  # Combined config — TF values override manual placeholders if keys collide
+  app_config_json   = merge(local.manual_config, local.db_config, local.temporal_config)
+  create_app_config = length(local.app_config_json) > 0
+}
+
+resource "aws_secretsmanager_secret" "app_config" {
+  count = local.create_app_config ? 1 : 0
+
+  name        = "${var.app_name}/config"
+  description = "Application configuration for ${var.app_name}"
+  kms_key_id  = var.kms_key_arn
+
+  tags = merge(local.common_tags, {
+    Name = "${var.app_name}/config"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "app_config" {
+  count = local.create_app_config ? 1 : 0
+
+  secret_id     = aws_secretsmanager_secret.app_config[0].id
+  secret_string = jsonencode(local.app_config_json)
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -288,11 +350,18 @@ locals {
     resources = [for k, v in aws_sns_topic.topics : v.arn]
   }] : []
 
-  secrets_statements = length(local.secrets) > 0 ? [{
+  # Collect all module-managed secret ARNs: explicit secrets + app_config + temporal API key
+  all_secret_arns = concat(
+    [for k, v in aws_secretsmanager_secret.secrets : v.arn],
+    length(aws_secretsmanager_secret.app_config) > 0 ? [aws_secretsmanager_secret.app_config[0].arn] : [],
+    length(module.temporal) > 0 && module.temporal[0].api_key_secret_arn != "" ? [module.temporal[0].api_key_secret_arn] : [],
+  )
+
+  secrets_statements = length(local.all_secret_arns) > 0 ? [{
     sid       = "SecretsManagerRead"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
-    resources = [for k, v in aws_secretsmanager_secret.secrets : v.arn]
+    resources = local.all_secret_arns
   }] : []
 
   db_statements = length(local.databases) > 0 ? [{
@@ -485,7 +554,7 @@ data "aws_iam_policy_document" "ci" {
 
   # Secrets Manager write — CI can populate secret values
   dynamic "statement" {
-    for_each = length(local.secrets) > 0 ? [1] : []
+    for_each = length(local.all_secret_arns) > 0 ? [1] : []
     content {
       sid    = "CISecretsWrite"
       effect = "Allow"
@@ -496,7 +565,7 @@ data "aws_iam_policy_document" "ci" {
         "secretsmanager:DeleteSecret",
         "secretsmanager:TagResource",
       ]
-      resources = [for k, v in aws_secretsmanager_secret.secrets : v.arn]
+      resources = local.all_secret_arns
     }
   }
 

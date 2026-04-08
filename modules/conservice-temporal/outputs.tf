@@ -49,3 +49,9 @@ output "api_key_secret_name" {
   description = "Name of the Secrets Manager secret containing the Temporal API key"
   value       = length(aws_secretsmanager_secret.api_key) > 0 ? aws_secretsmanager_secret.api_key[0].name : ""
 }
+
+output "api_key_value" {
+  description = "Temporal API key token (sensitive — only available at creation time)"
+  value       = length(temporalcloud_apikey.this) > 0 ? temporalcloud_apikey.this[0].token : ""
+  sensitive   = true
+}
