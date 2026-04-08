@@ -1,7 +1,0 @@
-# S3 bucket defaults — applied to all environments unless overridden.
-
-buckets:
-  attachments:
-    versioning: true
-  exports:
-    versioning: false

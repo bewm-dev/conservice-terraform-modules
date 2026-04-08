@@ -5,16 +5,6 @@ variable "app_name" {
   type        = string
 }
 
-variable "project" {
-  description = "Project name for S3/Secrets naming (e.g., 'conservice')"
-  type        = string
-}
-
-variable "resource_prefix" {
-  description = "Short prefix for workload resource naming (e.g., 'csvc')"
-  type        = string
-}
-
 variable "env" {
   description = "Environment: dev, stg, prod"
   type        = string
@@ -25,8 +15,24 @@ variable "region" {
   type        = string
 }
 
+variable "cluster_name" {
+  description = "EKS cluster name for Pod Identity association"
+  type        = string
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID for IAM policy ARN construction"
+  type        = string
+}
+
 variable "kms_key_arn" {
   description = "KMS key ARN for encryption"
   type        = string
   default     = null
+}
+
+variable "tf_state_bucket" {
+  description = "S3 bucket for Terraform state (CI role needs access)"
+  type        = string
+  default     = ""
 }

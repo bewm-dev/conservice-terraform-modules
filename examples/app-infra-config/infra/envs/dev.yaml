@@ -1,9 +1,9 @@
 # Dev environment overrides.
-# Only include what's DIFFERENT from the defaults.
+# Only include sections that differ from infra.yaml defaults.
 
 databases:
-  billing_events:
+  my_app:
     admin_users:
-      - shawnpetersen         # individual break-glass access
+      - jane.smith        # individual break-glass access
     readonly_users:
-      - jaren.damm            # individual read-only access
+      - bob.jones         # individual read-only access
