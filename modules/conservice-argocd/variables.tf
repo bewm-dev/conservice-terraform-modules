@@ -11,7 +11,7 @@ variable "github_org_url" {
 variable "chart_version" {
   description = "ArgoCD Helm chart version"
   type        = string
-  default     = "9.4.1"
+  default     = "9.5.0"
 }
 
 variable "namespace" {
