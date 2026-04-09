@@ -377,6 +377,16 @@ resource "aws_eks_pod_identity_association" "external_dns" {
   role_arn        = aws_iam_role.external_dns[0].arn
 }
 
+# Same role, second service account for private zone ExternalDNS
+resource "aws_eks_pod_identity_association" "external_dns_private" {
+  count = var.enable_external_dns ? 1 : 0
+
+  cluster_name    = var.cluster_name
+  namespace       = "external-dns"
+  service_account = "external-dns-private"
+  role_arn        = aws_iam_role.external_dns[0].arn
+}
+
 data "aws_iam_policy_document" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
