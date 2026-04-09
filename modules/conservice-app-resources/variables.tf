@@ -99,6 +99,30 @@ variable "ecr_account_id" {
   default     = "626209130023"
 }
 
+variable "ecr_repos" {
+  description = "List of ECR image names to create (e.g., [\"frontend\", \"dal\"]). Created as apps/{app_name}-{image} in the platform account via aws.ecr provider."
+  type        = list(string)
+  default     = []
+}
+
+variable "ecr_kms_key_arn" {
+  description = "KMS key ARN in the platform account for ECR encryption. Required when ecr_repos is non-empty."
+  type        = string
+  default     = ""
+}
+
+variable "ecr_cross_account_ids" {
+  description = "AWS account IDs that can pull from and push to these ECR repos (workload accounts)"
+  type        = list(string)
+  default     = []
+}
+
+variable "ecr_image_retention_count" {
+  description = "Number of tagged images to retain per ECR repo"
+  type        = number
+  default     = 50
+}
+
 # -----------------------------------------------------------------------------
 # HCL resource inputs — use these instead of config_path/infra.yaml
 # When config_path is null, these are used directly.
