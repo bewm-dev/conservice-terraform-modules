@@ -44,36 +44,14 @@ variable "repo_target_revision" {
 }
 
 variable "enable_dex" {
-  description = "Enable Dex OIDC for Google SSO login"
+  description = "Enable Dex OIDC config in Helm values. Secrets are created by ESO, not TF."
   type        = bool
   default     = true
 }
 
-variable "dex_google_client_id" {
-  description = "Google OAuth client ID for Dex SSO"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "dex_google_client_secret" {
-  description = "Google OAuth client secret for Dex SSO"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "dex_google_sa_json" {
-  description = "Google service account JSON for Dex directory API group lookup"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "argocd_domain" {
-  description = "ArgoCD server domain (e.g. argocd.conservice.cloud)"
+  description = "ArgoCD server domain (e.g. argocd.conservice.ai)"
   type        = string
-  default     = ""
 }
 
 variable "dex_admin_email" {

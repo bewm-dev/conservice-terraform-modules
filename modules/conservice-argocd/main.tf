@@ -2,66 +2,26 @@
 # ArgoCD Bootstrap
 # -----------------------------------------------------------------------------
 #
-# Full ArgoCD install with Dex SSO config. Bootstrap secrets are created
-# before the Helm release so Dex pods can mount them on first start.
-# ArgoCD self-manages from Git after the root Application syncs.
+# Installs ArgoCD via Helm with Dex SSO config. Dex secrets are NOT created
+# here — ESO creates them from Secrets Manager after ArgoCD is running.
+# Dex will fail initially; Reloader restarts pods when secrets appear.
+#
+# Bootstrap sequence:
+#   1. TF creates namespace + Helm install (Dex config refs secret names)
+#   2. Root Application syncs → ESO deploys (wave 1)
+#   3. ESO creates argocd-dex-secrets + dex-google-groups from Secrets Manager
+#   4. Reloader detects new secrets, restarts ArgoCD → Dex SSO works
 #
 # IAM (Pod Identity) is created externally in eks-mgmt/main.tf.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# Namespace + Bootstrap Secrets (BEFORE Helm install)
-# Dex pods mount these as volumes — they must exist before ArgoCD starts.
+# Namespace
 # -----------------------------------------------------------------------------
 
 resource "kubernetes_namespace" "argocd" {
   metadata {
     name = var.namespace
-  }
-}
-
-resource "kubernetes_secret" "dex_oidc" {
-  count = var.enable_dex ? 1 : 0
-
-  metadata {
-    name      = "argocd-dex-secrets"
-    namespace = var.namespace
-    labels = {
-      "app.kubernetes.io/part-of" = "argocd"
-    }
-  }
-
-  data = {
-    "dex.google.clientID"     = var.dex_google_client_id
-    "dex.google.clientSecret" = var.dex_google_client_secret
-  }
-
-  type       = "Opaque"
-  depends_on = [kubernetes_namespace.argocd]
-
-  lifecycle {
-    ignore_changes = [data, metadata[0].annotations, metadata[0].labels]
-  }
-}
-
-resource "kubernetes_secret" "dex_google_groups" {
-  count = var.enable_dex ? 1 : 0
-
-  metadata {
-    name      = "dex-google-groups"
-    namespace = var.namespace
-    labels    = {}
-  }
-
-  data = {
-    "googleAuth.json" = var.dex_google_sa_json
-  }
-
-  type       = "Opaque"
-  depends_on = [kubernetes_namespace.argocd]
-
-  lifecycle {
-    ignore_changes = [data, metadata[0].annotations, metadata[0].labels]
   }
 }
 
@@ -89,11 +49,7 @@ resource "helm_release" "argocd" {
     dex_hosted_domain = var.dex_hosted_domain
   })]
 
-  depends_on = [
-    kubernetes_namespace.argocd,
-    kubernetes_secret.dex_oidc,
-    kubernetes_secret.dex_google_groups,
-  ]
+  depends_on = [kubernetes_namespace.argocd]
 
   # After bootstrap, ArgoCD self-manages from Git.
   # Ignore values so Terraform doesn't fight ArgoCD for control.
