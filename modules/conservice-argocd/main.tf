@@ -37,8 +37,8 @@ resource "helm_release" "argocd" {
   namespace  = var.namespace
 
   create_namespace = false
-  wait             = true
-  timeout          = 600
+  wait    = false
+  timeout = 600
 
   values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
     github_token      = var.github_token
