@@ -49,6 +49,7 @@ locals {
   pod_identity = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
   ci_role      = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
   temporal     = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
+  bedrock      = local.use_yaml ? lookup(local.config, "bedrock", null) : var.bedrock
 
   app_name = local.use_yaml ? lookup(local.config, "name", var.app_name) : var.app_name
 
@@ -362,6 +363,36 @@ locals {
     resources = [var.kms_key_arn]
   }] : []
 
+  # Bedrock model invocation — added when bedrock block is present
+  bedrock_model_ids = local.bedrock != null ? lookup(local.bedrock, "model_ids", []) : []
+
+  bedrock_invoke_statements = length(local.bedrock_model_ids) > 0 ? [{
+    sid    = "BedrockInvoke"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = concat(
+      [for m in local.bedrock_model_ids : "arn:aws:bedrock:${var.region}::foundation-model/${m}"],
+      ["arn:aws:bedrock:${var.region}:${var.aws_account_id}:inference-profile/*"],
+    )
+  }] : []
+
+  bedrock_guardrail_statements = local.bedrock != null && lookup(local.bedrock, "guardrails", false) ? [{
+    sid       = "BedrockGuardrails"
+    effect    = "Allow"
+    actions   = ["bedrock:ApplyGuardrail"]
+    resources = ["arn:aws:bedrock:${var.region}:${var.aws_account_id}:guardrail/*"]
+  }] : []
+
+  bedrock_kb_statements = local.bedrock != null && lookup(local.bedrock, "knowledge_bases", false) ? [{
+    sid       = "BedrockKnowledgeBases"
+    effect    = "Allow"
+    actions   = ["bedrock:Retrieve", "bedrock:RetrieveAndGenerate"]
+    resources = ["arn:aws:bedrock:${var.region}:${var.aws_account_id}:knowledge-base/*"]
+  }] : []
+
   # Use flatten instead of concat to avoid go-cty type mismatch panic
   # when some lists are empty with different inferred element types
   all_policy_statements = flatten([
@@ -371,6 +402,9 @@ locals {
     local.secrets_statements,
     local.db_statements,
     local.kms_statements,
+    local.bedrock_invoke_statements,
+    local.bedrock_guardrail_statements,
+    local.bedrock_kb_statements,
   ])
 }
 

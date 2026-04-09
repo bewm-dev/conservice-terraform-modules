@@ -201,3 +201,16 @@ variable "temporal" {
   type        = any
   default     = null
 }
+
+variable "bedrock" {
+  description = <<-EOT
+    Bedrock AI model access config. Null to skip. Adds Bedrock permissions to the Pod Identity role.
+    {
+      model_ids       = list(string)  # Required: Bedrock model IDs (e.g., ["anthropic.claude-sonnet-4-20250514"])
+      knowledge_bases = bool          # Optional: allow Knowledge Base APIs (default: false)
+      guardrails      = bool          # Optional: allow ApplyGuardrail API (default: false)
+    }
+  EOT
+  type        = any
+  default     = null
+}
