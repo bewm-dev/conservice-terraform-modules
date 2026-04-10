@@ -821,33 +821,111 @@ resource "aws_iam_role_policy_attachment" "ci" {
 }
 
 # -----------------------------------------------------------------------------
-# SSO Identity Center — Account Assignments (via org provider)
+# SSO Identity Center — Per-App Permission Sets + Assignments (via org provider)
 #
-# Creates per-app SSO assignments so terraform destroy cleans up SSO access.
-# Permission sets (DatabaseAdmin, DatabaseReadOnly) are centrally managed.
-# Only the group→permission set→account assignments are app-owned.
+# Creates app-scoped permission sets (DB-{app}-Admin, DB-{app}-ReadOnly) with
+# rds-db:connect restricted to this app's database users only. Assignments
+# bind the app's Google groups to these permission sets on target accounts.
+# terraform destroy removes both permission sets and assignments — no orphans.
 # -----------------------------------------------------------------------------
 
 locals {
   create_sso = var.sso_access != null
+  # Database user prefix for IAM scoping (app-name with hyphens → underscores)
+  db_user_prefix = replace(var.app_name, "-", "_")
+}
 
-  sso_assignments = local.create_sso ? flatten([
-    for account_id in try(var.sso_access.account_ids, []) : [
+# --- Per-app permission sets (scoped to this app's DB users only) ---
+
+resource "aws_ssoadmin_permission_set" "db_admin" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  name             = "DB-${var.app_name}-Admin"
+  description      = "Database admin for ${var.app_name} — rds-db:connect scoped to ${local.db_user_prefix}_* users"
+  instance_arn     = var.sso_instance_arn
+  session_duration = "PT4H"
+
+  tags = merge(local.common_tags, {
+    Name = "DB-${var.app_name}-Admin"
+  })
+}
+
+resource "aws_ssoadmin_permission_set_inline_policy" "db_admin" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  instance_arn       = var.sso_instance_arn
+  permission_set_arn = aws_ssoadmin_permission_set.db_admin[0].arn
+
+  inline_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
       {
-        key            = "${var.sso_access.admin_group}-DatabaseAdmin-${account_id}"
-        group_name     = var.sso_access.admin_group
-        permission_set = "database_admin"
-        account_id     = account_id
+        Sid      = "RDSIAMConnect"
+        Effect   = "Allow"
+        Action   = ["rds-db:connect"]
+        Resource = ["arn:aws:rds-db:*:*:dbuser:*/${local.db_user_prefix}_*"]
       },
       {
-        key            = "${var.sso_access.readonly_group}-DatabaseReadOnly-${account_id}"
-        group_name     = var.sso_access.readonly_group
-        permission_set = "database_readonly"
-        account_id     = account_id
+        Sid    = "RDSDescribe"
+        Effect = "Allow"
+        Action = [
+          "rds:DescribeDBClusters",
+          "rds:DescribeDBInstances",
+          "rds:DescribeDBClusterEndpoints",
+        ]
+        Resource = ["*"]
       },
     ]
-  ]) : []
+  })
 }
+
+resource "aws_ssoadmin_permission_set" "db_readonly" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  name             = "DB-${var.app_name}-ReadOnly"
+  description      = "Database readonly for ${var.app_name} — rds-db:connect scoped to ${local.db_user_prefix}_* users"
+  instance_arn     = var.sso_instance_arn
+  session_duration = "PT4H"
+
+  tags = merge(local.common_tags, {
+    Name = "DB-${var.app_name}-ReadOnly"
+  })
+}
+
+resource "aws_ssoadmin_permission_set_inline_policy" "db_readonly" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  instance_arn       = var.sso_instance_arn
+  permission_set_arn = aws_ssoadmin_permission_set.db_readonly[0].arn
+
+  inline_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "RDSIAMConnect"
+        Effect   = "Allow"
+        Action   = ["rds-db:connect"]
+        Resource = ["arn:aws:rds-db:*:*:dbuser:*/${local.db_user_prefix}_*"]
+      },
+      {
+        Sid    = "RDSDescribe"
+        Effect = "Allow"
+        Action = [
+          "rds:DescribeDBClusters",
+          "rds:DescribeDBInstances",
+          "rds:DescribeDBClusterEndpoints",
+        ]
+        Resource = ["*"]
+      },
+    ]
+  })
+}
+
+# --- Group lookups ---
 
 data "aws_identitystore_group" "sso_groups" {
   provider = aws.org
@@ -863,6 +941,27 @@ data "aws_identitystore_group" "sso_groups" {
   }
 }
 
+# --- Assignments (group → per-app permission set → target accounts) ---
+
+locals {
+  sso_assignments = local.create_sso ? flatten([
+    for account_id in try(var.sso_access.account_ids, []) : [
+      {
+        key                = "${var.sso_access.admin_group}-admin-${account_id}"
+        group_name         = var.sso_access.admin_group
+        permission_set_arn = aws_ssoadmin_permission_set.db_admin[0].arn
+        account_id         = account_id
+      },
+      {
+        key                = "${var.sso_access.readonly_group}-readonly-${account_id}"
+        group_name         = var.sso_access.readonly_group
+        permission_set_arn = aws_ssoadmin_permission_set.db_readonly[0].arn
+        account_id         = account_id
+      },
+    ]
+  ]) : []
+}
+
 resource "aws_ssoadmin_account_assignment" "app" {
   provider = aws.org
 
@@ -871,7 +970,7 @@ resource "aws_ssoadmin_account_assignment" "app" {
   }
 
   instance_arn       = var.sso_instance_arn
-  permission_set_arn = var.sso_permission_set_arns[each.value.permission_set]
+  permission_set_arn = each.value.permission_set_arn
 
   principal_id   = data.aws_identitystore_group.sso_groups[each.value.group_name].group_id
   principal_type = "GROUP"

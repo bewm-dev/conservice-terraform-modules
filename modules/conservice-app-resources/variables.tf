@@ -230,12 +230,6 @@ variable "identity_store_id" {
   default     = ""
 }
 
-variable "sso_permission_set_arns" {
-  description = "Map of permission set names to ARNs (from identity-center outputs). Required when sso_access is set."
-  type        = map(string)
-  default     = {}
-}
-
 variable "bedrock" {
   description = <<-EOT
     Bedrock AI model access config. Null to skip. Adds Bedrock permissions to the Pod Identity role.
