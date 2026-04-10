@@ -725,6 +725,37 @@ data "aws_iam_policy_document" "ci" {
     }
   }
 
+  # Org state bucket read — for identity-center remote state (SSO instance ARN, permission sets)
+  dynamic "statement" {
+    for_each = local.create_sso ? [1] : []
+    content {
+      sid    = "CIOrgStateRead"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:ListBucket",
+      ]
+      resources = [
+        "arn:aws:s3:::conservice-tf-state-organization",
+        "arn:aws:s3:::conservice-tf-state-organization/organization/global/identity-center/*",
+      ]
+    }
+  }
+
+  # Cross-account SSO assignment role assume
+  dynamic "statement" {
+    for_each = local.create_sso ? [1] : []
+    content {
+      sid    = "CISSOAssume"
+      effect = "Allow"
+      actions = [
+        "sts:AssumeRole",
+        "sts:TagSession",
+      ]
+      resources = ["arn:aws:iam::896476316505:role/sso/${var.project}-org-sso-assignment-role"]
+    }
+  }
+
   # IAM management for this app's roles only
   statement {
     sid    = "CIIAMManage"
