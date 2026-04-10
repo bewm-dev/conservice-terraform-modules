@@ -1,137 +1,43 @@
-# ArgoCD Bootstrap Values — rendered by Terraform templatefile()
+# ArgoCD Bootstrap Values — MINIMAL
 #
-# Full config so the initial argocd-cm configmap is complete.
-# ArgoCD self-manages from Git after bootstrap — Terraform ignores
-# values after first apply (lifecycle.ignore_changes).
+# Just enough to get ArgoCD running. Full config comes from the
+# self-managed overlay in k8s-apps (Dex, RBAC, health checks, etc).
 
 global:
-  domain: ${argocd_domain}
   tolerations:
     - key: CriticalAddonsOnly
       operator: Exists
       effect: NoSchedule
 
-dex:
-  enabled: ${enable_dex}
-  extraArgs:
-    - --disable-tls
-%{ if enable_dex ~}
-  volumes:
-    - name: google-groups
-      secret:
-        secretName: dex-google-groups
-  volumeMounts:
-    - name: google-groups
-      mountPath: /etc/dex/google
-      readOnly: true
-%{ endif ~}
-
-server:
-  extraArgs:
-    - --dex-server-plaintext
-    - --dex-server=http://argocd-dex-server:5556
-  service:
-    type: ClusterIP
-  resources:
-    limits:
-      memory: 1Gi
-  autoscaling:
-    enabled: true
-    minReplicas: 1
-
-repoServer:
-  resources:
-    limits:
-      memory: 1Gi
-  autoscaling:
-    enabled: true
-    minReplicas: 1
-    targetMemoryUtilizationPercentage: 70
-
-controller:
-  replicas: 1
-
-redis:
-  enabled: true
-
-redis-ha:
-  enabled: false
-
-applicationSet:
-  replicas: 1
-
-notifications:
-  enabled: false
-
 configs:
-  params:
-    server.insecure: true
-    server.dex.server.strict.tls: "false"
-    reposerver.parallelism.limit: 5
-    server.enable.gzip: "true"
-    applicationsetcontroller.policy: create-update
-
-  rbac:
-    policy.default: ''
-    scopes: '[groups]'
-    policy.csv: |
-      g, awsgf-admins, role:admin
-      g, awsgf-developers, role:readonly
-
   cm:
     kustomize.buildOptions: "--enable-helm --load-restrictor LoadRestrictionsNone"
-    url: https://${argocd_domain}
-    timeout.reconciliation: 120s
-    timeout.reconciliation.jitter: 60s
-    resource.server-side-diff: "true"
 
-%{ if enable_dex ~}
-    dex.config: |
-        connectors:
-          - type: google
-            id: google
-            name: Google
-            config:
-              clientID: $argocd-dex-secrets:dex.google.clientID
-              clientSecret: $argocd-dex-secrets:dex.google.clientSecret
-              redirectURI: https://${argocd_domain}/api/dex/callback
-              hostedDomains:
-                - ${dex_hosted_domain}
-              serviceAccountFilePath: /etc/dex/google/googleAuth.json
-              adminEmail: ${dex_admin_email}
-              fetchTransitiveGroupMembership: true
-              groups:
-                - awsgf-admins
-                - awsgf-developers
-%{ endif ~}
-
-    resource.customizations.health.argoproj.io_Application: |
-      hs = {}
-      hs.status = "Progressing"
-      hs.message = ""
-      if obj.status ~= nil then
-        if obj.status.health ~= nil then
-          hs.status = obj.status.health.status
-          if obj.status.health.message ~= nil then
-            hs.message = obj.status.health.message
-          end
-        end
-      end
-      return hs
-
-    resource.customizations.health.karpenter.sh_NodePool: |
-      hs = {}
-      hs.status = "Healthy"
-      hs.message = "NodePool is active"
-      return hs
-    resource.customizations.health.karpenter.k8s.aws_EC2NodeClass: |
-      hs = {}
-      hs.status = "Healthy"
-      hs.message = "EC2NodeClass is active"
-      return hs
+  params:
+    server.insecure: true
+    applicationsetcontroller.policy: create-update
 
   credentialTemplates:
     github-conservice:
       url: ${github_org_url}
       password: "${github_token}"
       username: x-access-token
+
+dex:
+  enabled: false
+
+server:
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+
+controller:
+  replicas: 1
+
+repoServer:
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+
+applicationSet:
+  replicas: 1

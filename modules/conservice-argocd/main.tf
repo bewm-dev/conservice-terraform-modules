@@ -41,12 +41,8 @@ resource "helm_release" "argocd" {
   timeout = 600
 
   values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
-    github_token      = var.github_token
-    github_org_url    = var.github_org_url
-    enable_dex        = var.enable_dex
-    argocd_domain     = var.argocd_domain
-    dex_admin_email   = var.dex_admin_email
-    dex_hosted_domain = var.dex_hosted_domain
+    github_token   = var.github_token
+    github_org_url = var.github_org_url
   })]
 
   depends_on = [kubernetes_namespace.argocd]
