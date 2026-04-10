@@ -105,9 +105,9 @@ resource "kubectl_manifest" "root_application" {
     metadata = {
       name      = "${var.cluster_name}--root"
       namespace = var.namespace
-      annotations = {
-        "argocd.argoproj.io/compare-options" = "ServerSideDiff=true"
-      }
+      # No ServerSideDiff on root app — it suppresses health computation on
+      # child Application resources, preventing sync wave advancement.
+      # Child apps use ServerSideDiff via the cluster template.
     }
     spec = {
       project = "platform-addons"
