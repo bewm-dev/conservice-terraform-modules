@@ -202,6 +202,40 @@ variable "temporal" {
   default     = null
 }
 
+variable "sso_access" {
+  description = <<-EOT
+    SSO Identity Center access config. Null to skip.
+    When set, creates SSO account assignments for the app's Google groups
+    via cross-account assume to the org account.
+    {
+      admin_group    = string       # Google group name for DB admin (e.g., "awsgf-rates-agent-admin")
+      readonly_group = string       # Google group name for DB readonly (e.g., "awsgf-rates-agent-readonly")
+      account_ids    = list(string) # Workload account IDs to assign access to
+    }
+    Requires: aws.org provider configured with assume_role to the org SSO assignment role.
+  EOT
+  type        = any
+  default     = null
+}
+
+variable "sso_instance_arn" {
+  description = "SSO instance ARN (from identity-center outputs). Required when sso_access is set."
+  type        = string
+  default     = ""
+}
+
+variable "identity_store_id" {
+  description = "Identity Store ID (from identity-center outputs). Required when sso_access is set."
+  type        = string
+  default     = ""
+}
+
+variable "sso_permission_set_arns" {
+  description = "Map of permission set names to ARNs (from identity-center outputs). Required when sso_access is set."
+  type        = map(string)
+  default     = {}
+}
+
 variable "bedrock" {
   description = <<-EOT
     Bedrock AI model access config. Null to skip. Adds Bedrock permissions to the Pod Identity role.

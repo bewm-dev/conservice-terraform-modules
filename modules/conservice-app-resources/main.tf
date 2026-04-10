@@ -788,3 +788,63 @@ resource "aws_iam_role_policy_attachment" "ci" {
   role       = aws_iam_role.ci[0].name
   policy_arn = aws_iam_policy.ci[0].arn
 }
+
+# -----------------------------------------------------------------------------
+# SSO Identity Center — Account Assignments (via org provider)
+#
+# Creates per-app SSO assignments so terraform destroy cleans up SSO access.
+# Permission sets (DatabaseAdmin, DatabaseReadOnly) are centrally managed.
+# Only the group→permission set→account assignments are app-owned.
+# -----------------------------------------------------------------------------
+
+locals {
+  create_sso = var.sso_access != null
+
+  sso_assignments = local.create_sso ? flatten([
+    for account_id in try(var.sso_access.account_ids, []) : [
+      {
+        key            = "${var.sso_access.admin_group}-DatabaseAdmin-${account_id}"
+        group_name     = var.sso_access.admin_group
+        permission_set = "database_admin"
+        account_id     = account_id
+      },
+      {
+        key            = "${var.sso_access.readonly_group}-DatabaseReadOnly-${account_id}"
+        group_name     = var.sso_access.readonly_group
+        permission_set = "database_readonly"
+        account_id     = account_id
+      },
+    ]
+  ]) : []
+}
+
+data "aws_identitystore_group" "sso_groups" {
+  provider = aws.org
+
+  for_each          = local.create_sso ? toset([var.sso_access.admin_group, var.sso_access.readonly_group]) : toset([])
+  identity_store_id = var.identity_store_id
+
+  alternate_identifier {
+    unique_attribute {
+      attribute_path  = "DisplayName"
+      attribute_value = each.key
+    }
+  }
+}
+
+resource "aws_ssoadmin_account_assignment" "app" {
+  provider = aws.org
+
+  for_each = {
+    for a in local.sso_assignments : a.key => a
+  }
+
+  instance_arn       = var.sso_instance_arn
+  permission_set_arn = var.sso_permission_set_arns[each.value.permission_set]
+
+  principal_id   = data.aws_identitystore_group.sso_groups[each.value.group_name].group_id
+  principal_type = "GROUP"
+
+  target_id   = each.value.account_id
+  target_type = "AWS_ACCOUNT"
+}

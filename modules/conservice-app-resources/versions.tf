@@ -5,7 +5,7 @@ terraform {
     aws = {
       source                = "hashicorp/aws"
       version               = "~> 6.0"
-      configuration_aliases = [aws.ecr]
+      configuration_aliases = [aws.ecr, aws.org]
     }
     postgresql = {
       source  = "cyrilgdn/postgresql"
