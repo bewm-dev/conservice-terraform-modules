@@ -998,7 +998,10 @@ resource "aws_ssoadmin_permission_set" "app_admin" {
   session_duration = "PT4H"
 
   tags = merge(local.common_tags, {
-    Name = "App-${var.app_name}-Admin"
+    Name       = "App-${var.app_name}-Admin"
+    CreatedBy  = "conservice-app-resources"
+    SourceRepo = "conservice-app-${var.app_name}"
+    TFPath     = "conservice-app-${var.app_name}/infra/iac"
   })
 }
 
@@ -1025,7 +1028,10 @@ resource "aws_ssoadmin_permission_set" "app_readonly" {
   session_duration = "PT4H"
 
   tags = merge(local.common_tags, {
-    Name = "App-${var.app_name}-ReadOnly"
+    Name       = "App-${var.app_name}-ReadOnly"
+    CreatedBy  = "conservice-app-resources"
+    SourceRepo = "conservice-app-${var.app_name}"
+    TFPath     = "conservice-app-${var.app_name}/infra/iac"
   })
 }
 
