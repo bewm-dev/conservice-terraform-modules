@@ -823,44 +823,26 @@ resource "aws_iam_role_policy_attachment" "ci" {
 # -----------------------------------------------------------------------------
 # SSO Identity Center — Per-App Permission Sets + Assignments (via org provider)
 #
-# Creates app-scoped permission sets (DB-{app}-Admin, DB-{app}-ReadOnly) with
-# rds-db:connect restricted to this app's database users only. Assignments
-# bind the app's Google groups to these permission sets on target accounts.
-# terraform destroy removes both permission sets and assignments — no orphans.
+# Creates app-scoped permission sets (App-{app}-Admin, App-{app}-ReadOnly)
+# with all AWS resource access restricted to this app's resources only:
+#   - rds-db:connect scoped to {app}_* database users
+#   - S3 scoped to conservice-*-{app}-* buckets
+#   - Secrets Manager scoped to {app}/* secrets
+#   - SQS scoped to *-{app}-* queues
+#   - SNS scoped to *-{app}-* topics
+#
+# terraform destroy removes permission sets + assignments — no orphans.
 # -----------------------------------------------------------------------------
 
 locals {
   create_sso = var.sso_access != null
   # Database user prefix for IAM scoping (app-name with hyphens → underscores)
   db_user_prefix = replace(var.app_name, "-", "_")
-}
 
-# --- Per-app permission sets (scoped to this app's DB users only) ---
-
-resource "aws_ssoadmin_permission_set" "db_admin" {
-  provider = aws.org
-  count    = local.create_sso ? 1 : 0
-
-  name             = "DB-${var.app_name}-Admin"
-  description      = "Database admin for ${var.app_name} — rds-db:connect scoped to ${local.db_user_prefix}_* users"
-  instance_arn     = var.sso_instance_arn
-  session_duration = "PT4H"
-
-  tags = merge(local.common_tags, {
-    Name = "DB-${var.app_name}-Admin"
-  })
-}
-
-resource "aws_ssoadmin_permission_set_inline_policy" "db_admin" {
-  provider = aws.org
-  count    = local.create_sso ? 1 : 0
-
-  instance_arn       = var.sso_instance_arn
-  permission_set_arn = aws_ssoadmin_permission_set.db_admin[0].arn
-
-  inline_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+  # Common IAM policy statements for app-scoped access
+  sso_admin_statements = local.create_sso ? concat(
+    # Database access
+    [
       {
         Sid      = "RDSIAMConnect"
         Effect   = "Allow"
@@ -877,34 +859,72 @@ resource "aws_ssoadmin_permission_set_inline_policy" "db_admin" {
         ]
         Resource = ["*"]
       },
-    ]
-  })
-}
+    ],
+    # S3 access (scoped to app buckets via naming convention)
+    length(local.buckets) > 0 ? [
+      {
+        Sid    = "S3AppBuckets"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.project}-*-${var.app_name}-*",
+          "arn:aws:s3:::${var.project}-*-${var.app_name}-*/*",
+        ]
+      },
+    ] : [],
+    # Secrets Manager access (scoped to app secrets)
+    [
+      {
+        Sid    = "SecretsRead"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:ListSecretVersionIds",
+        ]
+        Resource = ["arn:aws:secretsmanager:*:*:secret:${var.app_name}/*"]
+      },
+    ],
+    # SQS access (scoped to app queues)
+    length(local.queues) > 0 ? [
+      {
+        Sid    = "SQSAppQueues"
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage",
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+        ]
+        Resource = ["arn:aws:sqs:*:*:*-${var.app_name}-*"]
+      },
+    ] : [],
+    # SNS access (scoped to app topics)
+    length(local.topics) > 0 ? [
+      {
+        Sid    = "SNSAppTopics"
+        Effect = "Allow"
+        Action = [
+          "sns:Publish",
+          "sns:GetTopicAttributes",
+          "sns:ListSubscriptionsByTopic",
+        ]
+        Resource = ["arn:aws:sns:*:*:*-${var.app_name}-*"]
+      },
+    ] : [],
+  ) : []
 
-resource "aws_ssoadmin_permission_set" "db_readonly" {
-  provider = aws.org
-  count    = local.create_sso ? 1 : 0
-
-  name             = "DB-${var.app_name}-ReadOnly"
-  description      = "Database readonly for ${var.app_name} — rds-db:connect scoped to ${local.db_user_prefix}_* users"
-  instance_arn     = var.sso_instance_arn
-  session_duration = "PT4H"
-
-  tags = merge(local.common_tags, {
-    Name = "DB-${var.app_name}-ReadOnly"
-  })
-}
-
-resource "aws_ssoadmin_permission_set_inline_policy" "db_readonly" {
-  provider = aws.org
-  count    = local.create_sso ? 1 : 0
-
-  instance_arn       = var.sso_instance_arn
-  permission_set_arn = aws_ssoadmin_permission_set.db_readonly[0].arn
-
-  inline_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+  # Readonly gets describe/get only (no write/delete)
+  sso_readonly_statements = local.create_sso ? concat(
+    # Database access (same connect — PG role enforces readonly)
+    [
       {
         Sid      = "RDSIAMConnect"
         Effect   = "Allow"
@@ -921,7 +941,104 @@ resource "aws_ssoadmin_permission_set_inline_policy" "db_readonly" {
         ]
         Resource = ["*"]
       },
-    ]
+    ],
+    # S3 read-only
+    length(local.buckets) > 0 ? [
+      {
+        Sid    = "S3AppBucketsRead"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.project}-*-${var.app_name}-*",
+          "arn:aws:s3:::${var.project}-*-${var.app_name}-*/*",
+        ]
+      },
+    ] : [],
+    # Secrets read-only
+    [
+      {
+        Sid    = "SecretsRead"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
+        Resource = ["arn:aws:secretsmanager:*:*:secret:${var.app_name}/*"]
+      },
+    ],
+    # SQS read-only
+    length(local.queues) > 0 ? [
+      {
+        Sid    = "SQSAppQueuesRead"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+        ]
+        Resource = ["arn:aws:sqs:*:*:*-${var.app_name}-*"]
+      },
+    ] : [],
+  ) : []
+}
+
+# --- Per-app permission sets ---
+
+resource "aws_ssoadmin_permission_set" "app_admin" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  name             = "App-${var.app_name}-Admin"
+  description      = "Full access to ${var.app_name} resources (DB, S3, Secrets, SQS, SNS)"
+  instance_arn     = var.sso_instance_arn
+  session_duration = "PT4H"
+
+  tags = merge(local.common_tags, {
+    Name = "App-${var.app_name}-Admin"
+  })
+}
+
+resource "aws_ssoadmin_permission_set_inline_policy" "app_admin" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  instance_arn       = var.sso_instance_arn
+  permission_set_arn = aws_ssoadmin_permission_set.app_admin[0].arn
+
+  inline_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = local.sso_admin_statements
+  })
+}
+
+resource "aws_ssoadmin_permission_set" "app_readonly" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  name             = "App-${var.app_name}-ReadOnly"
+  description      = "Read-only access to ${var.app_name} resources (DB, S3, Secrets, SQS)"
+  instance_arn     = var.sso_instance_arn
+  session_duration = "PT4H"
+
+  tags = merge(local.common_tags, {
+    Name = "App-${var.app_name}-ReadOnly"
+  })
+}
+
+resource "aws_ssoadmin_permission_set_inline_policy" "app_readonly" {
+  provider = aws.org
+  count    = local.create_sso ? 1 : 0
+
+  instance_arn       = var.sso_instance_arn
+  permission_set_arn = aws_ssoadmin_permission_set.app_readonly[0].arn
+
+  inline_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = local.sso_readonly_statements
   })
 }
 
@@ -949,13 +1066,13 @@ locals {
       {
         key                = "${var.sso_access.admin_group}-admin-${account_id}"
         group_name         = var.sso_access.admin_group
-        permission_set_arn = aws_ssoadmin_permission_set.db_admin[0].arn
+        permission_set_arn = aws_ssoadmin_permission_set.app_admin[0].arn
         account_id         = account_id
       },
       {
         key                = "${var.sso_access.readonly_group}-readonly-${account_id}"
         group_name         = var.sso_access.readonly_group
-        permission_set_arn = aws_ssoadmin_permission_set.db_readonly[0].arn
+        permission_set_arn = aws_ssoadmin_permission_set.app_readonly[0].arn
         account_id         = account_id
       },
     ]
