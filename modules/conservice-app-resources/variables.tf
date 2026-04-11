@@ -93,34 +93,14 @@ variable "tf_state_bucket" {
   default     = ""
 }
 
+# ECR repos are managed centrally in the platform account's ECR component.
+# See conservice-aws-platform/accounts/platform/global/ecr/
+# The CI role still needs ECR push permissions (scoped to this app's repos).
+
 variable "ecr_account_id" {
-  description = "AWS account ID where ECR repos live (platform account)"
+  description = "AWS account ID where ECR repos live (platform account). Used for CI role ECR push policy."
   type        = string
   default     = "626209130023"
-}
-
-variable "ecr_repos" {
-  description = "List of ECR image names to create (e.g., [\"frontend\", \"dal\"]). Created as apps/{app_name}-{image} in the platform account via aws.ecr provider."
-  type        = list(string)
-  default     = []
-}
-
-variable "ecr_kms_key_arn" {
-  description = "KMS key ARN in the platform account for ECR encryption. Required when ecr_repos is non-empty."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_cross_account_ids" {
-  description = "AWS account IDs that can pull from and push to these ECR repos (workload accounts)"
-  type        = list(string)
-  default     = []
-}
-
-variable "ecr_image_retention_count" {
-  description = "Number of tagged images to retain per ECR repo"
-  type        = number
-  default     = 50
 }
 
 # -----------------------------------------------------------------------------

@@ -84,19 +84,7 @@ output "database_all_iam_roles" {
   value       = { for k, v in module.databases : k => v.all_iam_role_names }
 }
 
-# -----------------------------------------------------------------------------
-# ECR
-# -----------------------------------------------------------------------------
-
-output "ecr_repository_urls" {
-  description = "Map of image name to ECR repository URL"
-  value       = { for k, v in aws_ecr_repository.app : k => v.repository_url }
-}
-
-output "ecr_repository_arns" {
-  description = "Map of image name to ECR repository ARN"
-  value       = { for k, v in aws_ecr_repository.app : k => v.arn }
-}
+# ECR repos managed centrally — see platform/global/ecr outputs
 
 # -----------------------------------------------------------------------------
 # Pod Identity
