@@ -7,13 +7,9 @@ terraform {
       version               = "~> 6.0"
       configuration_aliases = [aws.ecr, aws.org]
     }
-    postgresql = {
-      source  = "cyrilgdn/postgresql"
-      version = "~> 1.21"
-    }
-    temporalcloud = {
-      source  = "temporalio/temporalcloud"
-      version = "~> 1.3"
-    }
+    # postgresql and temporalcloud are declared in their respective sub-modules
+    # (conservice-app-database, conservice-temporal) and inherited via provider
+    # pass-through. This avoids forcing every root module to configure providers
+    # for features it doesn't use.
   }
 }
