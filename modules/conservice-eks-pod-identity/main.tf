@@ -558,7 +558,7 @@ resource "aws_eks_pod_identity_association" "kargo" {
   count = var.enable_kargo ? 1 : 0
 
   cluster_name    = var.cluster_name
-  namespace       = "argocd"
+  namespace       = "kargo"
   service_account = "kargo-controller"
   role_arn        = aws_iam_role.kargo[0].arn
 }
