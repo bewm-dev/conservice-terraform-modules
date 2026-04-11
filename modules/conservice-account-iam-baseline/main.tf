@@ -209,9 +209,12 @@ data "aws_iam_policy_document" "tf_execution" {
   dynamic "statement" {
     for_each = var.platform_account_id != null ? [1] : []
     content {
-      sid       = "CrossAccountAssumePlatform"
+      sid       = "CrossAccountAssume"
       actions   = ["sts:AssumeRole"]
-      resources = ["arn:aws:iam::${var.platform_account_id}:role/infrastructure/*"]
+      resources = compact([
+        "arn:aws:iam::${var.platform_account_id}:role/infrastructure/*",
+        var.org_account_id != null ? "arn:aws:iam::${var.org_account_id}:role/sso/*" : "",
+      ])
     }
   }
 }

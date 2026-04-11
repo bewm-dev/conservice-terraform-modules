@@ -38,6 +38,12 @@ variable "platform_account_id" {
   default     = null
 }
 
+variable "org_account_id" {
+  description = "AWS account ID for the organization account (for SSO cross-account assume)"
+  type        = string
+  default     = null
+}
+
 variable "role_type" {
   description = "Trust model for the TF execution role: cross-account or self-contained"
   type        = string
