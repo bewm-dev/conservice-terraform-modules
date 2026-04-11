@@ -92,6 +92,7 @@ data "aws_iam_policy_document" "tf_execution" {
       "sqs:*",
       "sns:*",
       "ssm:*",
+      "events:*",
     ]
     resources = ["*"]
   }
@@ -170,6 +171,13 @@ data "aws_iam_policy_document" "tf_execution" {
       "iam:ListSAMLProviders",
       "iam:GetAccountSummary",
       "iam:GetAccountAuthorizationDetails",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
+      "iam:ListRoleTags",
     ]
     resources = ["*"]
   }
