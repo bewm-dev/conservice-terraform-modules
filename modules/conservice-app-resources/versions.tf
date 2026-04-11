@@ -5,7 +5,7 @@ terraform {
     aws = {
       source                = "hashicorp/aws"
       version               = "~> 6.0"
-      configuration_aliases = [aws.ecr, aws.org]
+      configuration_aliases = [aws.ecr]
     }
     # postgresql and temporalcloud are declared in their respective sub-modules
     # (conservice-app-database, conservice-temporal) and inherited via provider
