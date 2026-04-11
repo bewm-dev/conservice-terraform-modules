@@ -200,6 +200,20 @@ data "aws_iam_policy_document" "tf_execution" {
     ]
     resources = ["arn:aws:iam::${var.aws_account_id}:role/aws-service-role/*"]
   }
+
+  # ---------------------------------------------------------------------------
+  # Allow: Cross-account assume into platform account
+  # Needed for app Terraform to create ECR repos via the aws.ecr provider.
+  # Scoped to /infrastructure/ roles in the platform account only.
+  # ---------------------------------------------------------------------------
+  dynamic "statement" {
+    for_each = var.platform_account_id != null ? [1] : []
+    content {
+      sid       = "CrossAccountAssumePlatform"
+      actions   = ["sts:AssumeRole"]
+      resources = ["arn:aws:iam::${var.platform_account_id}:role/infrastructure/*"]
+    }
+  }
 }
 
 resource "aws_iam_policy" "tf_execution" {
