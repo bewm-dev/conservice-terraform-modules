@@ -553,7 +553,10 @@ data "aws_iam_policy_document" "ci" {
       "ecr:CompleteLayerUpload",
       "ecr:DescribeRepositories",
     ]
-    resources = ["arn:aws:ecr:${var.region}:${var.ecr_account_id}:repository/apps/${var.app_name}-*"]
+    resources = [
+      "arn:aws:ecr:${var.region}:${var.ecr_account_id}:repository/apps/${var.app_name}",
+      "arn:aws:ecr:${var.region}:${var.ecr_account_id}:repository/apps/${var.app_name}-*",
+    ]
   }
 
   statement {
