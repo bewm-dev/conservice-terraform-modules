@@ -176,16 +176,20 @@ resource "aws_secretsmanager_secret" "secrets" {
 }
 
 # -----------------------------------------------------------------------------
-# App Secrets — two secrets, one k8s Secret
+# App Config Secret — {app}/config
 #
-# {app}/config   — manual values (API keys, OAuth creds). ignore_changes
-#                  prevents TF from overwriting. Seeded with REPLACE_ME.
-# {app}/computed — TF-managed values (DATABASE_URL, TEMPORAL_CLOUD_API_KEY).
-#                  No ignore_changes — TF always writes current values.
+# Manual/external values only (API keys, OAuth creds, third-party tokens).
+# TF seeds REPLACE_ME placeholders on first apply; ignore_changes prevents
+# overwriting manual updates.
 #
-# ESO uses two dataFrom.extract entries that merge into one k8s Secret.
-# Pods see one flat set of env vars. Adding/removing keys in either
-# Secrets Manager secret requires no ExternalSecret changes.
+# ESO merges this with module-owned secrets into one k8s Secret:
+#   {app}/config              — manual values (this resource, dataFrom.extract)
+#   temporal/{app}-{env}/...  — Temporal sub-module owns these (overlay patch)
+#   aurora/...                — Aurora sub-module owns these (overlay patch)
+#
+# Each secret has exactly one owner. No manual copying between secrets.
+# Non-secret env-specific values (DATABASE_URL, AWS_REGION) go in ConfigMap
+# overlays, not Secrets Manager.
 # -----------------------------------------------------------------------------
 
 locals {
