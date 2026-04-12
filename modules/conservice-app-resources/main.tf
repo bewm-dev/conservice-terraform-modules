@@ -74,7 +74,8 @@ module "s3_buckets" {
   version  = "~> 5.7.0"
   for_each = local.buckets
 
-  bucket = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+  bucket        = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+  force_destroy = var.s3_force_destroy
 
   versioning = {
     status = lookup(each.value, "versioning", true) ? "Enabled" : "Suspended"
@@ -166,9 +167,10 @@ resource "aws_sns_topic" "topics" {
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = local.secrets
 
-  name        = "${var.app_name}/${each.key}"
-  description = lookup(each.value, "description", "Secret for ${var.app_name}")
-  kms_key_id  = var.kms_key_arn
+  name                    = "${var.app_name}/${each.key}"
+  description             = lookup(each.value, "description", "Secret for ${var.app_name}")
+  kms_key_id              = var.kms_key_arn
+  recovery_window_in_days = var.secrets_recovery_window_days
 
   tags = merge(local.common_tags, {
     Name = "${var.app_name}/${each.key}"
@@ -201,9 +203,10 @@ locals {
 resource "aws_secretsmanager_secret" "app_config" {
   count = local.create_app_config ? 1 : 0
 
-  name        = "${var.app_name}/config"
-  description = "Application secrets for ${var.app_name} (manual values — populate after apply)"
-  kms_key_id  = var.kms_key_arn
+  name                    = "${var.app_name}/config"
+  description             = "Application secrets for ${var.app_name} (manual values — populate after apply)"
+  kms_key_id              = var.kms_key_arn
+  recovery_window_in_days = var.secrets_recovery_window_days
 
   tags = merge(local.common_tags, {
     Name = "${var.app_name}/config"

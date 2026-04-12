@@ -139,6 +139,12 @@ variable "buckets" {
   default     = {}
 }
 
+variable "s3_force_destroy" {
+  description = "Allow terraform destroy to delete non-empty S3 buckets. Required for clean teardown."
+  type        = bool
+  default     = true
+}
+
 variable "queues" {
   description = "Map of SQS queues to create"
   type        = any
@@ -161,6 +167,12 @@ variable "app_config_keys" {
   description = "Manual config key names for {app}/config. These get REPLACE_ME placeholders; populate real values via console/CLI after apply. Use UPPER_CASE — keys become env var names via ESO dataFrom.extract."
   type        = list(string)
   default     = []
+}
+
+variable "secrets_recovery_window_days" {
+  description = "Days before a deleted secret is permanently removed. 0 = immediate deletion (clean teardown). 7-30 = recovery window."
+  type        = number
+  default     = 0
 }
 
 
