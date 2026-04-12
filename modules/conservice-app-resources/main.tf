@@ -588,7 +588,7 @@ data "aws_iam_policy_document" "ci" {
     }
   }
 
-  # EKS Pod Identity association management
+  # EKS Pod Identity association management — scoped to target cluster (M1)
   dynamic "statement" {
     for_each = local.create_pod_identity ? [1] : []
     content {
@@ -600,7 +600,9 @@ data "aws_iam_policy_document" "ci" {
         "eks:DescribePodIdentityAssociation",
         "eks:ListPodIdentityAssociations",
       ]
-      resources = ["*"]
+      resources = [
+        "arn:aws:eks:${var.region}:${var.aws_account_id}:cluster/${var.cluster_name}",
+      ]
     }
   }
 
@@ -624,8 +626,6 @@ data "aws_iam_policy_document" "ci" {
       "iam:DeletePolicyVersion",
       "iam:ListPolicyVersions",
       "iam:TagPolicy",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
       "iam:ListAttachedRolePolicies",
       "iam:ListRolePolicies",
       "iam:PassRole",
@@ -634,6 +634,28 @@ data "aws_iam_policy_document" "ci" {
       "arn:aws:iam::${var.aws_account_id}:role/apps/${local.app_role_prefix}-*",
       "arn:aws:iam::${var.aws_account_id}:policy/apps/${local.app_role_prefix}-*",
     ]
+  }
+
+  # Attach/Detach restricted to app-scoped policies only (security audit C1).
+  # Without this condition, iam:AttachRolePolicy only checks the role ARN —
+  # an attacker could attach AdministratorAccess to an app role.
+  statement {
+    sid    = "CIIAMAttachPolicy"
+    effect = "Allow"
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+    resources = [
+      "arn:aws:iam::${var.aws_account_id}:role/apps/${local.app_role_prefix}-*",
+    ]
+    condition {
+      test     = "ArnLike"
+      variable = "iam:PolicyARN"
+      values = [
+        "arn:aws:iam::${var.aws_account_id}:policy/apps/${local.app_role_prefix}-*",
+      ]
+    }
   }
 }
 

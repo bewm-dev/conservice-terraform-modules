@@ -79,6 +79,20 @@ variable "iam_allowed_paths" {
   default     = ["/infrastructure/", "/eks/", "/ecr/", "/database/", "/dns/", "/ci/", "/apps/"]
 }
 
+variable "allowed_managed_policy_arns" {
+  description = "AWS managed policy ARN patterns the TF execution role may attach. Restricts iam:AttachRolePolicy via iam:PolicyARN condition."
+  type        = list(string)
+  default = [
+    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+    "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController",
+    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+  ]
+}
+
 variable "allowed_service_linked_roles" {
   description = "AWS service principals allowed for CreateServiceLinkedRole. All others are denied."
   type        = list(string)

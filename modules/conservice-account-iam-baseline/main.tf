@@ -116,8 +116,6 @@ data "aws_iam_policy_document" "tf_execution" {
       "iam:DeleteRolePolicy",
       "iam:GetRolePolicy",
       "iam:ListRolePolicies",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
       "iam:ListAttachedRolePolicies",
       "iam:CreateInstanceProfile",
       "iam:DeleteInstanceProfile",
@@ -133,6 +131,39 @@ data "aws_iam_policy_document" "tf_execution" {
         "arn:aws:iam::${var.aws_account_id}:instance-profile${path}*",
       ]
     ])
+  }
+
+  # ---------------------------------------------------------------------------
+  # Allow: AttachRolePolicy/DetachRolePolicy — restricted to safe policies
+  # (security audit H2). Without this, the TF execution role could attach
+  # AdministratorAccess to any role in the allowed paths.
+  # ---------------------------------------------------------------------------
+  statement {
+    sid = "IAMAttachPolicy"
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+    resources = flatten([
+      for path in var.iam_allowed_paths : [
+        "arn:aws:iam::${var.aws_account_id}:role${path}*",
+      ]
+    ])
+
+    condition {
+      test     = "ArnLike"
+      variable = "iam:PolicyARN"
+      values = concat(
+        # Account-local policies in allowed paths
+        [for path in var.iam_allowed_paths :
+          "arn:aws:iam::${var.aws_account_id}:policy${path}*"
+        ],
+        # Account-local policies in root path (EKS community module creates these)
+        ["arn:aws:iam::${var.aws_account_id}:policy/*"],
+        # AWS managed policies used by EKS, nodes, and platform components
+        var.allowed_managed_policy_arns,
+      )
+    }
   }
 
   # ---------------------------------------------------------------------------
