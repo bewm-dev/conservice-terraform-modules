@@ -50,7 +50,7 @@ variable "enable_dex" {
 }
 
 variable "argocd_domain" {
-  description = "ArgoCD server domain (e.g. argocd.conservice.ai)"
+  description = "ArgoCD server domain (e.g. argocd.conservice.cloud)"
   type        = string
 }
 
