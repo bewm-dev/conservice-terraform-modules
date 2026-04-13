@@ -99,17 +99,34 @@ check "api_key_expiry" {
   }
 }
 
+# Restore secret from pending deletion if it exists (idempotent — no error if secret doesn't exist)
+# This handles the re-scaffold case: teardown force-deletes the secret, but AWS keeps it in
+# "scheduled for deletion" state briefly. Without this, aws_secretsmanager_secret.api_key fails
+# with "already scheduled for deletion".
+resource "terraform_data" "restore_secret" {
+  count = var.create_service_account && var.api_key_expiry != "" && var.store_api_key_in_secrets_manager ? 1 : 0
+
+  input = "temporal/${local.namespace_name}/api-key"
+
+  provisioner "local-exec" {
+    command = "aws secretsmanager restore-secret --secret-id 'temporal/${local.namespace_name}/api-key' 2>/dev/null || true"
+  }
+}
+
 resource "aws_secretsmanager_secret" "api_key" {
   count = var.create_service_account && var.api_key_expiry != "" && var.store_api_key_in_secrets_manager ? 1 : 0
 
-  name        = "temporal/${local.namespace_name}/api-key"
-  description = "Temporal Cloud API key for ${var.app_name} ${var.env} workers"
-  kms_key_id  = var.secrets_kms_key_arn
+  name                    = "temporal/${local.namespace_name}/api-key"
+  description             = "Temporal Cloud API key for ${var.app_name} ${var.env} workers"
+  kms_key_id              = var.secrets_kms_key_arn
+  recovery_window_in_days = 0
 
   tags = merge(var.tags, {
     Name      = "temporal/${local.namespace_name}/api-key"
     ManagedBy = "terraform"
   })
+
+  depends_on = [terraform_data.restore_secret]
 }
 
 resource "aws_secretsmanager_secret_version" "api_key" {
