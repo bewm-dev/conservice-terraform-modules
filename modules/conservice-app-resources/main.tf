@@ -200,17 +200,30 @@ locals {
   create_app_config = length(var.app_config_keys) > 0
 }
 
+# Restore secret from pending deletion if it exists (handles rapid teardown → re-scaffold)
+resource "terraform_data" "restore_app_config_secret" {
+  count = local.create_app_config ? 1 : 0
+
+  input = "${var.app_name}/config"
+
+  provisioner "local-exec" {
+    command = "aws secretsmanager restore-secret --secret-id '${var.app_name}/config' 2>/dev/null || true"
+  }
+}
+
 resource "aws_secretsmanager_secret" "app_config" {
   count = local.create_app_config ? 1 : 0
 
   name                    = "${var.app_name}/config"
   description             = "Application secrets for ${var.app_name} (manual values — populate after apply)"
   kms_key_id              = var.kms_key_arn
-  recovery_window_in_days = var.secrets_recovery_window_days
+  recovery_window_in_days = 0
 
   tags = merge(local.common_tags, {
     Name = "${var.app_name}/config"
   })
+
+  depends_on = [terraform_data.restore_app_config_secret]
 }
 
 resource "aws_secretsmanager_secret_version" "app_config" {
