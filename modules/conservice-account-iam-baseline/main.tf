@@ -93,6 +93,9 @@ data "aws_iam_policy_document" "tf_execution" {
       "sns:*",
       "ssm:*",
       "events:*",
+      "dynamodb:*",
+      "states:*",
+      "application-autoscaling:*",
     ]
     resources = ["*"]
   }
