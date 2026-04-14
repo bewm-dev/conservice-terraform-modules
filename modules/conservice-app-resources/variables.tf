@@ -157,6 +157,24 @@ variable "topics" {
   default     = {}
 }
 
+variable "event_buses" {
+  description = "Map of EventBridge event buses to create. Each bus can contain rules: { rules = { rule_name = { pattern = {...}, description = \"...\" } } }"
+  type        = any
+  default     = {}
+}
+
+variable "state_machines" {
+  description = "Map of Step Functions state machines to create. Each: { type = \"STANDARD\"|\"EXPRESS\", definition = \"...\", log_level = \"ALL\", log_retention_days = 30 }"
+  type        = any
+  default     = {}
+}
+
+variable "tables" {
+  description = "Map of DynamoDB tables to create. Each: { hash_key, hash_key_type = \"S\", range_key, range_key_type = \"S\", billing_mode = \"PAY_PER_REQUEST\", gsi = {...}, ttl_attribute, point_in_time_recovery = true }"
+  type        = any
+  default     = {}
+}
+
 variable "secrets" {
   description = "Map of Secrets Manager secrets to create"
   type        = any

@@ -9,11 +9,14 @@
 #   2. infra/envs/<env>.yaml    — environment overrides (optional, merged on top)
 #
 # Naming:
-#   S3 buckets:  {project}-{env}-{app_name}-{key}  (global namespace)
-#   SQS queues:  {resource_prefix}-{env}-{region_code}-{app_name}-{key}-queue
-#   SNS topics:  {resource_prefix}-{env}-{region_code}-{app_name}-{key}-topic
-#   Secrets:     {project}-{env}-{app_name}-{key}
-#   Databases:   key becomes the database name in shared Aurora
+#   S3 buckets:     {project}-{env}-{app_name}-{key}  (global namespace)
+#   SQS queues:     {prefix}-{env}-{region_code}-{app_name}-{key}-queue
+#   SNS topics:     {prefix}-{env}-{region_code}-{app_name}-{key}-topic
+#   EventBridge:    {prefix}-{env}-{region_code}-{app_name}-{key}
+#   Step Functions: {prefix}-{env}-{region_code}-{app_name}-{key}
+#   DynamoDB:       {prefix}-{env}-{region_code}-{app_name}-{key}
+#   Secrets:        {app_name}/{key}
+#   Databases:      key becomes the database name in shared Aurora
 # -----------------------------------------------------------------------------
 
 locals {
@@ -41,15 +44,44 @@ locals {
   env_override      = local.has_env_override ? yamldecode(file(local.env_override_path)) : {}
 
   # HCL vars take effect when config_path is null; YAML takes effect when set
-  buckets      = local.use_yaml ? lookup(local.env_override, "buckets", lookup(local.config, "buckets", {})) : var.buckets
-  queues       = local.use_yaml ? lookup(local.env_override, "queues", lookup(local.config, "queues", {})) : var.queues
-  topics       = local.use_yaml ? lookup(local.env_override, "topics", lookup(local.config, "topics", {})) : var.topics
-  databases    = local.use_yaml ? lookup(local.env_override, "databases", lookup(local.config, "databases", {})) : var.databases
-  secrets      = local.use_yaml ? lookup(local.env_override, "secrets", lookup(local.config, "secrets", {})) : var.secrets
-  pod_identity = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
-  ci_role      = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
-  temporal     = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
-  bedrock      = local.use_yaml ? lookup(local.config, "bedrock", null) : var.bedrock
+  buckets        = local.use_yaml ? lookup(local.env_override, "buckets", lookup(local.config, "buckets", {})) : var.buckets
+  queues         = local.use_yaml ? lookup(local.env_override, "queues", lookup(local.config, "queues", {})) : var.queues
+  topics         = local.use_yaml ? lookup(local.env_override, "topics", lookup(local.config, "topics", {})) : var.topics
+  event_buses    = local.use_yaml ? lookup(local.env_override, "event_buses", lookup(local.config, "event_buses", {})) : var.event_buses
+  state_machines = local.use_yaml ? lookup(local.env_override, "state_machines", lookup(local.config, "state_machines", {})) : var.state_machines
+  tables         = local.use_yaml ? lookup(local.env_override, "tables", lookup(local.config, "tables", {})) : var.tables
+  databases      = local.use_yaml ? lookup(local.env_override, "databases", lookup(local.config, "databases", {})) : var.databases
+  secrets        = local.use_yaml ? lookup(local.env_override, "secrets", lookup(local.config, "secrets", {})) : var.secrets
+  pod_identity   = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
+  ci_role        = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
+  temporal       = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
+  bedrock        = local.use_yaml ? lookup(local.config, "bedrock", null) : var.bedrock
+
+  # EventBridge: flatten rules from all buses into a flat list for for_each
+  event_bus_rules = flatten([
+    for bus_key, bus in local.event_buses : [
+      for rule_key, rule in lookup(bus, "rules", {}) : {
+        bus_key     = bus_key
+        rule_key    = rule_key
+        pattern     = rule.pattern
+        description = lookup(rule, "description", "")
+      }
+    ]
+  ])
+
+  # DynamoDB: build attribute definitions from hash_key, range_key, and GSI keys
+  table_attributes = {
+    for tbl_key, tbl in local.tables : tbl_key => distinct(concat(
+      [{ name = lookup(tbl, "hash_key", "pk"), type = lookup(tbl, "hash_key_type", "S") }],
+      lookup(tbl, "range_key", null) != null ? [{ name = tbl.range_key, type = lookup(tbl, "range_key_type", "S") }] : [],
+      flatten([
+        for gsi_key, gsi in lookup(tbl, "gsi", {}) : concat(
+          [{ name = gsi.hash_key, type = lookup(gsi, "hash_key_type", "S") }],
+          lookup(gsi, "range_key", null) != null ? [{ name = gsi.range_key, type = lookup(gsi, "range_key_type", "S") }] : [],
+        )
+      ])
+    ))
+  }
 
   app_name = local.use_yaml ? lookup(local.config, "name", var.app_name) : var.app_name
 
@@ -153,6 +185,179 @@ resource "aws_sns_topic" "topics" {
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-${each.key}-topic"
+  })
+}
+
+# -----------------------------------------------------------------------------
+# EventBridge — native resources
+#
+# Guardrails: Custom event bus per app (never use the default bus)
+# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# -----------------------------------------------------------------------------
+
+resource "aws_cloudwatch_event_bus" "buses" {
+  for_each = local.event_buses
+
+  name = "${local.name_prefix}-${each.key}"
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}"
+  })
+}
+
+resource "aws_cloudwatch_event_rule" "rules" {
+  for_each = { for item in local.event_bus_rules : "${item.bus_key}.${item.rule_key}" => item }
+
+  name           = "${local.name_prefix}-${each.value.bus_key}-${each.value.rule_key}"
+  event_bus_name = aws_cloudwatch_event_bus.buses[each.value.bus_key].name
+  event_pattern  = jsonencode(each.value.pattern)
+  description    = lookup(each.value, "description", "Rule ${each.value.rule_key} on bus ${each.value.bus_key}")
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.value.bus_key}-${each.value.rule_key}"
+  })
+}
+
+# -----------------------------------------------------------------------------
+# Step Functions — native resources
+#
+# Guardrails: CloudWatch logging, Express or Standard type
+# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# -----------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "sfn" {
+  for_each = local.state_machines
+
+  name              = "/aws/vendedlogs/states/${local.name_prefix}-${each.key}"
+  retention_in_days = lookup(each.value, "log_retention_days", 30)
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}"
+  })
+}
+
+resource "aws_iam_role" "sfn" {
+  for_each = local.state_machines
+
+  name = "${local.app_role_prefix}-sfn-${each.key}-role"
+  path = "/apps/"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = { Service = "states.amazonaws.com" }
+      Action = ["sts:AssumeRole"]
+    }]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "${local.app_role_prefix}-sfn-${each.key}-role"
+  })
+}
+
+resource "aws_iam_role_policy" "sfn_logs" {
+  for_each = local.state_machines
+
+  name = "cloudwatch-logs"
+  role = aws_iam_role.sfn[each.key].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_sfn_state_machine" "machines" {
+  for_each = local.state_machines
+
+  name     = "${local.name_prefix}-${each.key}"
+  role_arn = aws_iam_role.sfn[each.key].arn
+  type     = upper(lookup(each.value, "type", "STANDARD"))
+
+  definition = lookup(each.value, "definition", jsonencode({
+    Comment = "Placeholder — replace with your workflow definition"
+    StartAt = "Pass"
+    States  = { Pass = { Type = "Pass", End = true } }
+  }))
+
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.sfn[each.key].arn}:*"
+    include_execution_data = lookup(each.value, "log_execution_data", true)
+    level                  = lookup(each.value, "log_level", "ALL")
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}"
+  })
+}
+
+# -----------------------------------------------------------------------------
+# DynamoDB Tables — native resources
+#
+# Guardrails: encryption at rest (KMS or AWS-owned), point-in-time recovery on by default
+# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# -----------------------------------------------------------------------------
+
+resource "aws_dynamodb_table" "tables" {
+  for_each = local.tables
+
+  name         = "${local.name_prefix}-${each.key}"
+  billing_mode = upper(lookup(each.value, "billing_mode", "PAY_PER_REQUEST"))
+  hash_key     = lookup(each.value, "hash_key", "pk")
+  range_key    = lookup(each.value, "range_key", null)
+
+  # Primary key attributes — always include hash_key, optionally range_key
+  dynamic "attribute" {
+    for_each = local.table_attributes[each.key]
+    content {
+      name = attribute.value.name
+      type = attribute.value.type
+    }
+  }
+
+  # Global secondary indexes
+  dynamic "global_secondary_index" {
+    for_each = lookup(each.value, "gsi", {})
+    content {
+      name            = global_secondary_index.key
+      hash_key        = global_secondary_index.value.hash_key
+      range_key       = lookup(global_secondary_index.value, "range_key", null)
+      projection_type = lookup(global_secondary_index.value, "projection_type", "ALL")
+    }
+  }
+
+  point_in_time_recovery {
+    enabled = lookup(each.value, "point_in_time_recovery", true)
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = var.kms_key_arn
+  }
+
+  ttl {
+    attribute_name = lookup(each.value, "ttl_attribute", "")
+    enabled        = lookup(each.value, "ttl_attribute", "") != ""
+  }
+
+  deletion_protection_enabled = lookup(each.value, "deletion_protection", false)
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}"
   })
 }
 
@@ -304,8 +509,9 @@ module "temporal" {
 # Pod Identity — auto-generated IAM role scoped to this app's resources
 #
 # Creates an IAM role with permissions for exactly the resources declared
-# above (S3 buckets, SQS queues, SNS topics, Secrets Manager secrets,
-# Aurora databases). Associates it with an EKS service account via Pod Identity.
+# above (S3 buckets, SQS queues, SNS topics, EventBridge, Step Functions,
+# DynamoDB tables, Secrets Manager secrets, Aurora databases).
+# Associates it with an EKS service account via Pod Identity.
 #
 # Enabled when pod_identity block is present in infra.yaml.
 # -----------------------------------------------------------------------------
@@ -349,6 +555,49 @@ locals {
     effect    = "Allow"
     actions   = ["sns:Publish"]
     resources = [for k, v in aws_sns_topic.topics : v.arn]
+  }] : []
+
+  eventbridge_statements = length(local.event_buses) > 0 ? [{
+    sid    = "EventBridgePutEvents"
+    effect = "Allow"
+    actions = [
+      "events:PutEvents",
+    ]
+    resources = [for k, v in aws_cloudwatch_event_bus.buses : v.arn]
+  }] : []
+
+  sfn_statements = length(local.state_machines) > 0 ? [{
+    sid    = "StepFunctionsExecute"
+    effect = "Allow"
+    actions = [
+      "states:StartExecution",
+      "states:StartSyncExecution",
+      "states:DescribeExecution",
+      "states:StopExecution",
+      "states:ListExecutions",
+    ]
+    resources = [for k, v in aws_sfn_state_machine.machines : v.arn]
+  }] : []
+
+  dynamodb_statements = length(local.tables) > 0 ? [{
+    sid    = "DynamoDBAccess"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:BatchGetItem",
+      "dynamodb:BatchWriteItem",
+    ]
+    resources = flatten([
+      for k, v in aws_dynamodb_table.tables : [
+        v.arn,
+        "${v.arn}/index/*",
+      ]
+    ])
   }] : []
 
   # Collect all module-managed secret ARNs: explicit secrets + config + temporal
@@ -419,6 +668,9 @@ locals {
     local.s3_statements,
     local.sqs_statements,
     local.sns_statements,
+    local.eventbridge_statements,
+    local.sfn_statements,
+    local.dynamodb_statements,
     local.secrets_statements,
     local.db_statements,
     local.kms_statements,

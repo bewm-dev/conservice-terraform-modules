@@ -41,6 +41,48 @@ output "topic_arns" {
 }
 
 # -----------------------------------------------------------------------------
+# EventBridge
+# -----------------------------------------------------------------------------
+
+output "event_bus_arns" {
+  description = "Map of event bus key to EventBridge bus ARN"
+  value       = { for k, v in aws_cloudwatch_event_bus.buses : k => v.arn }
+}
+
+output "event_bus_names" {
+  description = "Map of event bus key to EventBridge bus name"
+  value       = { for k, v in aws_cloudwatch_event_bus.buses : k => v.name }
+}
+
+# -----------------------------------------------------------------------------
+# Step Functions
+# -----------------------------------------------------------------------------
+
+output "state_machine_arns" {
+  description = "Map of state machine key to Step Functions ARN"
+  value       = { for k, v in aws_sfn_state_machine.machines : k => v.arn }
+}
+
+output "state_machine_names" {
+  description = "Map of state machine key to Step Functions name"
+  value       = { for k, v in aws_sfn_state_machine.machines : k => v.name }
+}
+
+# -----------------------------------------------------------------------------
+# DynamoDB
+# -----------------------------------------------------------------------------
+
+output "table_arns" {
+  description = "Map of table key to DynamoDB table ARN"
+  value       = { for k, v in aws_dynamodb_table.tables : k => v.arn }
+}
+
+output "table_names" {
+  description = "Map of table key to DynamoDB table name"
+  value       = { for k, v in aws_dynamodb_table.tables : k => v.name }
+}
+
+# -----------------------------------------------------------------------------
 # Secrets
 # -----------------------------------------------------------------------------
 
