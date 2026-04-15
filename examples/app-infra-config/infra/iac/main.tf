@@ -1,5 +1,5 @@
 module "resources" {
-  source = "git::https://github.com/bewm-dev/conservice-terraform-modules.git//modules/conservice-app-resources?ref=conservice-app-resources/v1.8.0"
+  source = "git::https://github.com/conservice-ai/conservice-terraform-modules.git//modules/conservice-app-resources?ref=conservice-app-resources/v1.8.0"
 
   app_name        = "my-app"
   env             = var.env
@@ -41,7 +41,7 @@ module "resources" {
   }
 
   ci_role = {
-    github_org = "bewm-dev"
+    github_org = "conservice-ai"
     repo_name  = "conservice-app-my-app"
   }
 
