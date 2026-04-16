@@ -8,13 +8,13 @@
 #   1. infra/infra.yaml         — all resource definitions (required)
 #   2. infra/envs/<env>.yaml    — environment overrides (optional, merged on top)
 #
-# Naming:
-#   S3 buckets:     {project}-{env}-{app_name}-{key}  (global namespace)
-#   SQS queues:     {prefix}-{env}-{region_code}-{app_name}-{key}-queue
-#   SNS topics:     {prefix}-{env}-{region_code}-{app_name}-{key}-topic
-#   EventBridge:    {prefix}-{env}-{region_code}-{app_name}-{key}
-#   Step Functions: {prefix}-{env}-{region_code}-{app_name}-{key}
-#   DynamoDB:       {prefix}-{env}-{region_code}-{app_name}-{key}
+# Naming (key suffix dropped when only one resource of that type):
+#   S3 buckets:     {project}-{env}-{app_name}[-{key}]  (global namespace)
+#   SQS queues:     {prefix}-{env}-{region_code}-{app_name}[-{key}]-queue
+#   SNS topics:     {prefix}-{env}-{region_code}-{app_name}[-{key}]-topic
+#   EventBridge:    {prefix}-{env}-{region_code}-{app_name}[-{key}]
+#   Step Functions: {prefix}-{env}-{region_code}-{app_name}[-{key}]
+#   DynamoDB:       {prefix}-{env}-{region_code}-{app_name}[-{key}]
 #   Secrets:        {app_name}/{key}
 #   Databases:      key becomes the database name in shared Aurora
 # -----------------------------------------------------------------------------
@@ -92,13 +92,54 @@ locals {
     AppName   = local.app_name
     ManagedBy = "terraform"
   })
+
+  # ---------------------------------------------------------------------------
+  # Computed resource names — drop key suffix when only one resource of a type
+  # e.g., single S3 bucket: "conservice-stg-myapp" not "conservice-stg-myapp-data"
+  # ---------------------------------------------------------------------------
+
+  s3_bucket_names = {
+    for k, v in local.buckets : k => length(local.buckets) == 1 ? "${var.project}-${var.env}-${var.app_name}" : "${var.project}-${var.env}-${var.app_name}-${k}"
+  }
+
+  sqs_queue_names = {
+    for k, v in local.queues : k => length(local.queues) == 1 ? "${local.name_prefix}-queue" : "${local.name_prefix}-${k}-queue"
+  }
+
+  sqs_dlq_names = {
+    for k, v in local.queues : k => length(local.queues) == 1 ? "${local.name_prefix}-dlq" : "${local.name_prefix}-${k}-dlq"
+  }
+
+  sns_topic_names = {
+    for k, v in local.topics : k => length(local.topics) == 1 ? "${local.name_prefix}-topic" : "${local.name_prefix}-${k}-topic"
+  }
+
+  event_bus_names = {
+    for k, v in local.event_buses : k => length(local.event_buses) == 1 ? local.name_prefix : "${local.name_prefix}-${k}"
+  }
+
+  event_rule_names = {
+    for item in local.event_bus_rules : "${item.bus_key}.${item.rule_key}" => length(local.event_buses) == 1 ? "${local.name_prefix}-${item.rule_key}" : "${local.name_prefix}-${item.bus_key}-${item.rule_key}"
+  }
+
+  sfn_names = {
+    for k, v in local.state_machines : k => length(local.state_machines) == 1 ? local.name_prefix : "${local.name_prefix}-${k}"
+  }
+
+  sfn_role_names = {
+    for k, v in local.state_machines : k => length(local.state_machines) == 1 ? "${local.app_role_prefix}-sfn-role" : "${local.app_role_prefix}-sfn-${k}-role"
+  }
+
+  dynamodb_names = {
+    for k, v in local.tables : k => length(local.tables) == 1 ? local.name_prefix : "${local.name_prefix}-${k}"
+  }
 }
 
 # -----------------------------------------------------------------------------
 # S3 Buckets — terraform-aws-modules/s3-bucket/aws
 #
 # Guardrails: KMS encryption, public access blocked, versioning default on
-# Naming: conservice-{env}-{app_name}-{key}
+# Naming: conservice-{env}-{app_name}[-{key}] (key omitted for single bucket)
 # -----------------------------------------------------------------------------
 
 module "s3_buckets" {
@@ -106,7 +147,7 @@ module "s3_buckets" {
   version  = "~> 5.7.0"
   for_each = local.buckets
 
-  bucket        = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+  bucket        = local.s3_bucket_names[each.key]
   force_destroy = var.s3_force_destroy
 
   versioning = {
@@ -129,7 +170,7 @@ module "s3_buckets" {
   restrict_public_buckets = true
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.env}-${var.app_name}-${each.key}"
+    Name = local.s3_bucket_names[each.key]
   })
 }
 
@@ -137,25 +178,25 @@ module "s3_buckets" {
 # SQS Queues — native resources
 #
 # Guardrails: SQS-managed encryption, DLQ by default
-# Naming: csvc-{env}-{region_code}-{app_name}-{key}-queue
+# Naming: csvc-{env}-{region_code}-{app_name}[-{key}]-queue (key omitted for single queue)
 # -----------------------------------------------------------------------------
 
 resource "aws_sqs_queue" "dlqs" {
   for_each = { for k, v in local.queues : k => v if lookup(v, "dlq", true) }
 
-  name                      = "${local.name_prefix}-${each.key}-dlq"
+  name                      = local.sqs_dlq_names[each.key]
   message_retention_seconds = lookup(each.value, "dlq_retention_seconds", 1209600) # 14 days
   sqs_managed_sse_enabled   = true
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}-dlq"
+    Name = local.sqs_dlq_names[each.key]
   })
 }
 
 resource "aws_sqs_queue" "queues" {
   for_each = local.queues
 
-  name                       = "${local.name_prefix}-${each.key}-queue"
+  name                       = local.sqs_queue_names[each.key]
   visibility_timeout_seconds = lookup(each.value, "visibility_timeout", 30)
   message_retention_seconds  = lookup(each.value, "retention_seconds", 345600) # 4 days
   sqs_managed_sse_enabled    = true
@@ -166,7 +207,7 @@ resource "aws_sqs_queue" "queues" {
   }) : null
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}-queue"
+    Name = local.sqs_queue_names[each.key]
   })
 }
 
@@ -174,17 +215,17 @@ resource "aws_sqs_queue" "queues" {
 # SNS Topics — native resources
 #
 # Guardrails: KMS encryption
-# Naming: csvc-{env}-{region_code}-{app_name}-{key}-topic
+# Naming: csvc-{env}-{region_code}-{app_name}[-{key}]-topic (key omitted for single topic)
 # -----------------------------------------------------------------------------
 
 resource "aws_sns_topic" "topics" {
   for_each = local.topics
 
-  name              = "${local.name_prefix}-${each.key}-topic"
+  name              = local.sns_topic_names[each.key]
   kms_master_key_id = var.kms_key_arn != null ? var.kms_key_arn : "alias/aws/sns"
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}-topic"
+    Name = local.sns_topic_names[each.key]
   })
 }
 
@@ -192,29 +233,29 @@ resource "aws_sns_topic" "topics" {
 # EventBridge — native resources
 #
 # Guardrails: Custom event bus per app (never use the default bus)
-# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# Naming: csvc-{env}-{region_code}-{app_name}[-{key}] (key omitted for single bus)
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_event_bus" "buses" {
   for_each = local.event_buses
 
-  name = "${local.name_prefix}-${each.key}"
+  name = local.event_bus_names[each.key]
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}"
+    Name = local.event_bus_names[each.key]
   })
 }
 
 resource "aws_cloudwatch_event_rule" "rules" {
   for_each = { for item in local.event_bus_rules : "${item.bus_key}.${item.rule_key}" => item }
 
-  name           = "${local.name_prefix}-${each.value.bus_key}-${each.value.rule_key}"
+  name           = local.event_rule_names["${each.value.bus_key}.${each.value.rule_key}"]
   event_bus_name = aws_cloudwatch_event_bus.buses[each.value.bus_key].name
   event_pattern  = jsonencode(each.value.pattern)
   description    = lookup(each.value, "description", "Rule ${each.value.rule_key} on bus ${each.value.bus_key}")
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.value.bus_key}-${each.value.rule_key}"
+    Name = local.event_rule_names["${each.value.bus_key}.${each.value.rule_key}"]
   })
 }
 
@@ -222,24 +263,24 @@ resource "aws_cloudwatch_event_rule" "rules" {
 # Step Functions — native resources
 #
 # Guardrails: CloudWatch logging, Express or Standard type
-# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# Naming: csvc-{env}-{region_code}-{app_name}[-{key}] (key omitted for single state machine)
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "sfn" {
   for_each = local.state_machines
 
-  name              = "/aws/vendedlogs/states/${local.name_prefix}-${each.key}"
+  name              = "/aws/vendedlogs/states/${local.sfn_names[each.key]}"
   retention_in_days = lookup(each.value, "log_retention_days", 30)
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}"
+    Name = local.sfn_names[each.key]
   })
 }
 
 resource "aws_iam_role" "sfn" {
   for_each = local.state_machines
 
-  name = "${local.app_role_prefix}-sfn-${each.key}-role"
+  name = local.sfn_role_names[each.key]
   path = "/apps/"
 
   assume_role_policy = jsonencode({
@@ -252,7 +293,7 @@ resource "aws_iam_role" "sfn" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${local.app_role_prefix}-sfn-${each.key}-role"
+    Name = local.sfn_role_names[each.key]
   })
 }
 
@@ -284,7 +325,7 @@ resource "aws_iam_role_policy" "sfn_logs" {
 resource "aws_sfn_state_machine" "machines" {
   for_each = local.state_machines
 
-  name     = "${local.name_prefix}-${each.key}"
+  name     = local.sfn_names[each.key]
   role_arn = aws_iam_role.sfn[each.key].arn
   type     = upper(lookup(each.value, "type", "STANDARD"))
 
@@ -295,13 +336,13 @@ resource "aws_sfn_state_machine" "machines" {
   }))
 
   logging_configuration {
-    log_destination        = "${aws_cloudwatch_log_group.sfn[each.key].arn}:*"
+    log_destination = "${aws_cloudwatch_log_group.sfn[each.key].arn}:*"
     include_execution_data = lookup(each.value, "log_execution_data", true)
     level                  = lookup(each.value, "log_level", "ALL")
   }
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}"
+    Name = local.sfn_names[each.key]
   })
 }
 
@@ -309,13 +350,13 @@ resource "aws_sfn_state_machine" "machines" {
 # DynamoDB Tables — native resources
 #
 # Guardrails: encryption at rest (KMS or AWS-owned), point-in-time recovery on by default
-# Naming: csvc-{env}-{region_code}-{app_name}-{key}
+# Naming: csvc-{env}-{region_code}-{app_name}[-{key}] (key omitted for single table)
 # -----------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "tables" {
   for_each = local.tables
 
-  name         = "${local.name_prefix}-${each.key}"
+  name         = local.dynamodb_names[each.key]
   billing_mode = upper(lookup(each.value, "billing_mode", "PAY_PER_REQUEST"))
   hash_key     = lookup(each.value, "hash_key", "pk")
   range_key    = lookup(each.value, "range_key", null)
@@ -357,7 +398,7 @@ resource "aws_dynamodb_table" "tables" {
   deletion_protection_enabled = lookup(each.value, "deletion_protection", false)
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-${each.key}"
+    Name = local.dynamodb_names[each.key]
   })
 }
 
