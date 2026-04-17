@@ -75,9 +75,15 @@ variable "aws_account_id" {
 }
 
 variable "enable_databases" {
-  description = "Enable database provisioning (requires postgresql provider with VPC access to Aurora)"
+  description = <<-EOT
+    Whether to actually provision PostgreSQL databases + IAM-auth roles declared in `databases`.
+    Requires a `postgresql` provider configured in the caller's provider.tf with Aurora
+    cluster admin credentials. Off by default so apps can declare `databases = {...}` for
+    documentation / IAM purposes while SRE still owns the provider wiring.
+    Flip to true once the postgresql provider is wired and Aurora admin creds are available.
+  EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 # CI Role — required when ci_role is defined in infra.yaml

@@ -286,9 +286,9 @@ resource "aws_iam_role" "sfn" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "states.amazonaws.com" }
-      Action = ["sts:AssumeRole"]
+      Action    = ["sts:AssumeRole"]
     }]
   })
 
@@ -336,7 +336,7 @@ resource "aws_sfn_state_machine" "machines" {
   }))
 
   logging_configuration {
-    log_destination = "${aws_cloudwatch_log_group.sfn[each.key].arn}:*"
+    log_destination        = "${aws_cloudwatch_log_group.sfn[each.key].arn}:*"
     include_execution_data = lookup(each.value, "log_execution_data", true)
     level                  = lookup(each.value, "log_level", "ALL")
   }
@@ -655,7 +655,13 @@ locals {
     resources = local.all_secret_arns
   }] : []
 
-  db_statements = length(local.databases) > 0 ? [{
+  # Gate on enable_databases, not length(local.databases). When an app declares
+  # `databases = {...}` but enable_databases = false, the `module.databases`
+  # for_each is empty so the resources list is empty — IAM rejects Allow
+  # statements with no resources. This produced the "malformed IAM" failure
+  # seen during hello-agent onboarding (2026-04-17). Only emit the statement
+  # when the sub-module is actually instantiated.
+  db_statements = var.enable_databases && length(local.databases) > 0 ? [{
     sid       = "AuroraIAMAuth"
     effect    = "Allow"
     actions   = ["rds-db:connect"]
