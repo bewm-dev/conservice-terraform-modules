@@ -137,6 +137,21 @@ variable "databases" {
   description = "Map of databases to create in shared Aurora cluster"
   type        = any
   default     = {}
+
+  validation {
+    condition = alltrue([
+      for _, db in var.databases : alltrue([
+        for k in keys(db) : contains([
+          "service_role", "team_role", "extensions",
+          "app_permissions", "team_permissions",
+          "admin_groups", "readonly_groups",
+          "admin_users", "readonly_users",
+          "connection_limit", "additional_readonly_roles"
+        ], k)
+      ])
+    ])
+    error_message = "databases: unknown key in a database entry. Valid per-db keys: service_role, team_role, extensions, app_permissions, team_permissions, admin_groups, readonly_groups, admin_users, readonly_users, connection_limit, additional_readonly_roles. Note: 'engine' is NOT valid (always aurora-postgresql)."
+  }
 }
 
 variable "buckets" {
@@ -216,6 +231,17 @@ variable "temporal" {
   description = "Temporal Cloud config: { regions, retention_days, search_attributes, api_key_expiry, ... }. Null to skip."
   type        = any
   default     = null
+
+  validation {
+    condition = var.temporal == null || alltrue([
+      for k in keys(var.temporal) : contains([
+        "regions", "retention_days", "search_attributes", "api_key_expiry",
+        "api_key_auth", "enable_delete_protection", "create_service_account",
+        "service_account_permission", "store_api_key_in_secrets_manager"
+      ], k)
+    ])
+    error_message = "temporal: unknown key. 'namespace' and 'enabled' are NOT valid — the namespace is derived from app_name, and setting the block non-null is how you opt in. Valid keys: regions, retention_days, search_attributes, api_key_expiry, api_key_auth, enable_delete_protection, create_service_account, service_account_permission, store_api_key_in_secrets_manager."
+  }
 }
 
 # SSO Identity Center — per-app permission sets + assignments are managed
@@ -233,4 +259,21 @@ variable "bedrock" {
   EOT
   type        = any
   default     = null
+
+  validation {
+    condition = var.bedrock == null || alltrue([
+      for k in keys(var.bedrock) : contains(["model_ids", "knowledge_bases", "guardrails"], k)
+    ])
+    error_message = "bedrock: unknown key. 'enabled' and 'models' are NOT valid — the block being non-null is the opt-in, and the model list key is 'model_ids' (plural+underscore). Valid keys: model_ids, knowledge_bases, guardrails."
+  }
+
+  validation {
+    condition     = var.bedrock == null || can(tolist(lookup(var.bedrock, "model_ids", null)))
+    error_message = "bedrock.model_ids is required when bedrock is set, and must be a list of strings (e.g., [\"anthropic.claude-sonnet-4-20250514\"])."
+  }
+
+  validation {
+    condition     = var.bedrock == null || length(lookup(var.bedrock, "model_ids", [])) > 0
+    error_message = "bedrock.model_ids must be a non-empty list. An empty or missing list means the Pod Identity role has no Bedrock InvokeModel permission — the app will get AccessDenied at runtime."
+  }
 }
