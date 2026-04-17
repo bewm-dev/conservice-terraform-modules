@@ -532,7 +532,15 @@ module "temporal" {
   retention_days = lookup(local.temporal, "retention_days", 30)
   api_key_auth   = lookup(local.temporal, "api_key_auth", true)
 
-  enable_delete_protection = lookup(local.temporal, "enable_delete_protection", var.env == "prod")
+  # Default false even in prod. This module is used by forge-managed apps, which
+  # own lifecycle end-to-end — protecting the namespace at the Temporal Cloud API
+  # level just blocks `terraform destroy` and forces manual edits before teardown.
+  # The real safeguards against accidental prod destroy live in `forge_teardown_app`
+  # (hasRealContent check + SRE approval gate) and in TF state access controls.
+  # Apps that explicitly want API-level protection can set
+  # `temporal = { enable_delete_protection = true }` — but then they own disabling
+  # it before destroy, same as any other protected resource.
+  enable_delete_protection = lookup(local.temporal, "enable_delete_protection", false)
 
   search_attributes = local.temporal_search_attributes
 
