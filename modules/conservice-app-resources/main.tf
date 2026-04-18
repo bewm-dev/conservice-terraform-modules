@@ -463,7 +463,7 @@ resource "aws_secretsmanager_secret" "app_config" {
   name                    = "${var.app_name}/config"
   description             = "Application secrets for ${var.app_name} (manual values — populate after apply)"
   kms_key_id              = var.kms_key_arn
-  recovery_window_in_days = 0
+  recovery_window_in_days = var.secret_recovery_window_in_days
 
   tags = merge(local.common_tags, {
     Name = "${var.app_name}/config"

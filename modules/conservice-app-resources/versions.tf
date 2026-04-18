@@ -3,8 +3,8 @@ terraform {
 
   required_providers {
     aws = {
-      source                = "hashicorp/aws"
-      version               = "~> 6.0"
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
       # No aliases needed — all resources are in the workload account.
       # ECR repos are in the platform account's TF, SSO in the org account's TF.
     }

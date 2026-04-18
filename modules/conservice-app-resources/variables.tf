@@ -55,6 +55,17 @@ variable "kms_key_arn" {
   default     = null
 }
 
+variable "secret_recovery_window_in_days" {
+  description = "Recovery window (days) for deleted Secrets Manager secrets. Platform default is 7 (SOC2-aligned). Set to 0 ONLY for non-prod sandboxes where rapid teardown/re-scaffold is required."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.secret_recovery_window_in_days == 0 || (var.secret_recovery_window_in_days >= 7 && var.secret_recovery_window_in_days <= 30)
+    error_message = "secret_recovery_window_in_days must be 0 (instant delete) or between 7 and 30 days."
+  }
+}
+
 variable "tags" {
   description = "Additional tags applied to all resources"
   type        = map(string)

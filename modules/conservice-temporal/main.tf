@@ -119,7 +119,7 @@ resource "aws_secretsmanager_secret" "api_key" {
   name                    = "temporal/${local.namespace_name}/api-key"
   description             = "Temporal Cloud API key for ${var.app_name} ${var.env} workers"
   kms_key_id              = var.secrets_kms_key_arn
-  recovery_window_in_days = 0
+  recovery_window_in_days = var.secret_recovery_window_in_days
 
   tags = merge(var.tags, {
     Name      = "temporal/${local.namespace_name}/api-key"
