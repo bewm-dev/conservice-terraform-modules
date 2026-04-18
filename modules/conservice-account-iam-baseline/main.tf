@@ -259,6 +259,36 @@ data "aws_iam_policy_document" "tf_execution" {
       ])
     }
   }
+
+  # ---------------------------------------------------------------------------
+  # Allow: Pull platform/forge-render and other platform-owned images from
+  # platform ECR. The forge.yaml → HCL render step in every scaffolded app's
+  # terraform workflow runs `docker run <platform-ecr>/platform/forge-render`
+  # BEFORE `terraform init`, so the tf-execution-role itself (not just the
+  # ecr_pull role for pods) needs GetAuthorizationToken + pull permissions.
+  # Resource-based policy on platform ECR scopes which repos are readable;
+  # here we grant the API actions. GetAuthorizationToken is a global action
+  # and must be Resource="*".
+  # ---------------------------------------------------------------------------
+  statement {
+    sid       = "ECRAuthForRenderPull"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ECRPullPlatformImages"
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:DescribeRepositories",
+      "ecr:ListImages",
+    ]
+    resources = var.platform_account_id != null ? [
+      "arn:aws:ecr:*:${var.platform_account_id}:repository/platform/*",
+    ] : []
+  }
 }
 
 resource "aws_iam_policy" "tf_execution" {
