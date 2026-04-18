@@ -15,7 +15,7 @@ variable "argocd_namespace" {
 }
 
 variable "repo_url" {
-  description = "Git repository URL for conservice-k8s-apps"
+  description = "Git repository URL for conservice-argocd-apps"
   type        = string
 }
 

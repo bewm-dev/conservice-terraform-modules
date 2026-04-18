@@ -39,7 +39,7 @@ variable "github_app_credentials" {
 }
 
 variable "repo_url" {
-  description = "Git repository URL for conservice-k8s-apps"
+  description = "Git repository URL for conservice-argocd-apps"
   type        = string
 }
 
