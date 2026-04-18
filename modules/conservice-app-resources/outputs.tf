@@ -83,6 +83,20 @@ output "table_names" {
 }
 
 # -----------------------------------------------------------------------------
+# Firehose
+# -----------------------------------------------------------------------------
+
+output "firehose_stream_names" {
+  description = "Map of firehose key to Kinesis Firehose delivery stream name"
+  value       = { for k, v in aws_kinesis_firehose_delivery_stream.app : k => v.name }
+}
+
+output "firehose_stream_arns" {
+  description = "Map of firehose key to Kinesis Firehose delivery stream ARN"
+  value       = { for k, v in aws_kinesis_firehose_delivery_stream.app : k => v.arn }
+}
+
+# -----------------------------------------------------------------------------
 # Secrets
 # -----------------------------------------------------------------------------
 

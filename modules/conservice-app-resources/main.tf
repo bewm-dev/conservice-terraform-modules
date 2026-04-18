@@ -52,10 +52,11 @@ locals {
   tables         = local.use_yaml ? lookup(local.env_override, "tables", lookup(local.config, "tables", {})) : var.tables
   databases      = local.use_yaml ? lookup(local.env_override, "databases", lookup(local.config, "databases", {})) : var.databases
   secrets        = local.use_yaml ? lookup(local.env_override, "secrets", lookup(local.config, "secrets", {})) : var.secrets
-  pod_identity   = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
-  ci_role        = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
-  temporal       = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
-  bedrock        = local.use_yaml ? lookup(local.config, "bedrock", null) : var.bedrock
+  # Note: `firehoses` local is defined in firehose.tf (keeps firehose concerns colocated).
+  pod_identity = local.use_yaml ? lookup(local.config, "pod_identity", null) : var.pod_identity
+  ci_role      = local.use_yaml ? lookup(local.config, "ci_role", null) : var.ci_role
+  temporal     = local.use_yaml ? lookup(local.config, "temporal", null) : var.temporal
+  bedrock      = local.use_yaml ? lookup(local.config, "bedrock", null) : var.bedrock
 
   # EventBridge: flatten rules from all buses into a flat list for for_each
   event_bus_rules = flatten([
@@ -628,6 +629,16 @@ locals {
     resources = [for k, v in aws_sfn_state_machine.machines : v.arn]
   }] : []
 
+  firehose_statements = length(local.firehoses) > 0 ? [{
+    sid    = "FirehosePutRecord"
+    effect = "Allow"
+    actions = [
+      "firehose:PutRecord",
+      "firehose:PutRecordBatch",
+    ]
+    resources = [for k, v in aws_kinesis_firehose_delivery_stream.app : v.arn]
+  }] : []
+
   dynamodb_statements = length(local.tables) > 0 ? [{
     sid    = "DynamoDBAccess"
     effect = "Allow"
@@ -726,6 +737,7 @@ locals {
     local.eventbridge_statements,
     local.sfn_statements,
     local.dynamodb_statements,
+    local.firehose_statements,
     local.secrets_statements,
     local.db_statements,
     local.kms_statements,

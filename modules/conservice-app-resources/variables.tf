@@ -213,6 +213,39 @@ variable "secrets" {
   default     = {}
 }
 
+variable "firehoses" {
+  description = "Map of Kinesis Data Firehose delivery streams. Each entry references a bucket key from `buckets`. Destination is S3 only for v1."
+  type = map(object({
+    destination             = string
+    bucket                  = string
+    prefix                  = optional(string, "")
+    buffer_size_mb          = optional(number, 5)
+    buffer_interval_seconds = optional(number, 300)
+    compression             = optional(string, "GZIP")
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for _, f in var.firehoses : f.destination == "s3"])
+    error_message = "firehoses: only destination=s3 is supported for v1."
+  }
+
+  validation {
+    condition     = alltrue([for _, f in var.firehoses : contains(["UNCOMPRESSED", "GZIP", "SNAPPY", "ZIP", "HADOOP_SNAPPY"], f.compression)])
+    error_message = "firehoses: compression must be one of UNCOMPRESSED, GZIP, SNAPPY, ZIP, HADOOP_SNAPPY."
+  }
+
+  validation {
+    condition     = alltrue([for _, f in var.firehoses : f.buffer_size_mb >= 1 && f.buffer_size_mb <= 128])
+    error_message = "firehoses: buffer_size_mb must be between 1 and 128."
+  }
+
+  validation {
+    condition     = alltrue([for _, f in var.firehoses : f.buffer_interval_seconds >= 60 && f.buffer_interval_seconds <= 900])
+    error_message = "firehoses: buffer_interval_seconds must be between 60 and 900."
+  }
+}
+
 variable "app_config_keys" {
   description = "Manual config key names for {app}/config. These get REPLACE_ME placeholders; populate real values via console/CLI after apply. Use UPPER_CASE — keys become env var names via ESO dataFrom.extract."
   type        = list(string)
