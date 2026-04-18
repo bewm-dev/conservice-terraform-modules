@@ -17,11 +17,15 @@ configs:
     server.insecure: true
     applicationsetcontroller.policy: create-update
 
+  # GitHub App credentials — ArgoCD exchanges the App JWT for installation
+  # tokens (~1hr TTL) on every git op. Replaces PAT auth as of module v1.6.0.
   credentialTemplates:
     github-conservice:
       url: ${github_org_url}
-      password: "${github_token}"
-      username: x-access-token
+      githubAppID: "${github_app_id}"
+      githubAppInstallationID: "${github_app_installation_id}"
+      githubAppPrivateKey: |
+        ${replace(chomp(github_app_private_key), "\n", "\n        ")}
 
 dex:
   enabled: false

@@ -20,10 +20,22 @@ variable "namespace" {
   default     = "argocd"
 }
 
-variable "github_token" {
-  description = "GitHub PAT for repo access. Sensitive — stored in Helm values in state (encrypted)."
-  type        = string
-  sensitive   = true
+variable "github_app_credentials" {
+  description = <<-EOT
+    GitHub App credentials used by ArgoCD to authenticate to private repos.
+    Typically sourced from AWS Secrets Manager (e.g., github-apps/conservice-saas-gitops).
+    Replaces the PAT-based github_token auth as of module v1.6.0.
+
+    - app_id: numeric App ID (from App settings page)
+    - installation_id: numeric Installation ID (from Install App URL)
+    - private_key: PEM-encoded RSA private key (multi-line string)
+  EOT
+  type = object({
+    app_id          = string
+    installation_id = string
+    private_key     = string
+  })
+  sensitive = true
 }
 
 variable "repo_url" {

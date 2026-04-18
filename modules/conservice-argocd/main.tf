@@ -37,12 +37,14 @@ resource "helm_release" "argocd" {
   namespace  = var.namespace
 
   create_namespace = false
-  wait    = false
-  timeout = 600
+  wait             = false
+  timeout          = 600
 
   values = [templatefile("${path.module}/argocd-values.yaml.tftpl", {
-    github_token   = var.github_token
-    github_org_url = var.github_org_url
+    github_app_id              = var.github_app_credentials.app_id
+    github_app_installation_id = var.github_app_credentials.installation_id
+    github_app_private_key     = var.github_app_credentials.private_key
+    github_org_url             = var.github_org_url
   })]
 
   depends_on = [kubernetes_namespace.argocd]
